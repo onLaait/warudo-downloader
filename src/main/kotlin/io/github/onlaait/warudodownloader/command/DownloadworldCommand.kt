@@ -1,8 +1,8 @@
-package com.github.onlaait.warudodownloader.command
+package io.github.onlaait.warudodownloader.command
 
-import com.github.onlaait.warudodownloader.WD
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.IntegerArgumentType
+import io.github.onlaait.warudodownloader.WD
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.argument
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource
@@ -14,15 +14,16 @@ object DownloadworldCommand {
         dispatcher.register(
             literal("downloadworld")
                 .executes { ctx ->
+                    ctx.source.sendFeedback(Component.literal("Warudo Downloader is here."))
                     return@executes 0
                 }
                 .then(
                     literal("start")
                         .executes { ctx ->
-                            return@executes start(ctx.source, 16)
+                            return@executes start(ctx.source, 10)
                         }
                         .then(
-                            argument("range", IntegerArgumentType.integer(0, 256))
+                            argument("range", IntegerArgumentType.integer(0, 32))
                                 .executes { ctx ->
                                     val range = IntegerArgumentType.getInteger(ctx, "range")
                                     return@executes start(ctx.source, range)

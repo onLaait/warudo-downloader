@@ -1,12 +1,12 @@
-package com.github.onlaait.warudodownloader
+package io.github.onlaait.warudodownloader
 
-import com.github.onlaait.warudodownloader.mixin.*
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.stream.JsonWriter
 import com.mojang.serialization.JsonOps
 import com.mojang.serialization.Lifecycle
+import io.github.onlaait.warudodownloader.mixin.*
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.minecraft.SharedConstants
 import net.minecraft.client.Minecraft
@@ -178,6 +178,21 @@ object WD {
             levelStorageAccess.safeClose()
             dataFolder.createDirectories()
             dimensionDataStorage = DimensionDataStorage(dataFolder, mc.fixerUpper, frozen)
+
+            mc.connection!!.serverData?.iconBytes?.let { icon ->
+                levelPath.resolve("icon.png").writeBytes(icon)
+            }
+
+            for ((i, data) in ((Minecraft.getInstance().downloadedPackSource as DownloadedPackSourceAccessor).`warudodownloader$getManager`() as ServerPackManagerAccessor).`warudodownloader$getPacks`().withIndex()) {
+                val path = (data as ServerPackManagerServerPackDataAccessor).`warudodownloader$getPath`() ?: continue
+                val fileName =
+                    if (i == 0) {
+                        "resources.zip"
+                    } else {
+                        "resources$i.zip"
+                    }
+                path.copyTo(levelPath.resolve(fileName))
+            }
 
             (level as ClientLevelAccessor).`warudodownloader$getAllMapData`().forEach { (mapId, data) ->
                 setMapData(mapId, data)

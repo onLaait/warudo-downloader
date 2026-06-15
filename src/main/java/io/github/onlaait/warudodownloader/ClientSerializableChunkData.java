@@ -1,4 +1,4 @@
-package com.github.onlaait.warudodownloader;
+package io.github.onlaait.warudodownloader;
 
 import it.unimi.dsi.fastutil.shorts.ShortArrayList;
 import it.unimi.dsi.fastutil.shorts.ShortList;

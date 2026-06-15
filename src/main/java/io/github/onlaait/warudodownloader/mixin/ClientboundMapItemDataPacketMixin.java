@@ -1,6 +1,6 @@
-package com.github.onlaait.warudodownloader.mixin;
+package io.github.onlaait.warudodownloader.mixin;
 
-import com.github.onlaait.warudodownloader.WD;
+import io.github.onlaait.warudodownloader.WD;
 import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket;
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import org.spongepowered.asm.mixin.Mixin;

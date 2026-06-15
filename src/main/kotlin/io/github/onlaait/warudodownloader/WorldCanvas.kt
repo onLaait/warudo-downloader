@@ -1,4 +1,4 @@
-package com.github.onlaait.warudodownloader
+package io.github.onlaait.warudodownloader
 
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.minecraft.client.Minecraft

@@ -1,6 +1,6 @@
-package com.github.onlaait.warudodownloader
+package io.github.onlaait.warudodownloader
 
-import com.github.onlaait.warudodownloader.command.DownloadworldCommand
+import io.github.onlaait.warudodownloader.command.DownloadworldCommand
 import net.fabricmc.api.ClientModInitializer
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry

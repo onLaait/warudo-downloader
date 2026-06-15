@@ -1,4 +1,4 @@
-package com.github.onlaait.warudodownloader.mixin;
+package io.github.onlaait.warudodownloader.mixin;
 
 import net.minecraft.util.worldupdate.WorldUpgrader;
 import net.minecraft.world.level.chunk.storage.RegionStorageInfo;

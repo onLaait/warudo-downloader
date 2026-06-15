@@ -1,4 +1,4 @@
-package com.github.onlaait.warudodownloader;
+package io.github.onlaait.warudodownloader;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;

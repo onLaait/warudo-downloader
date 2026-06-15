@@ -1,4 +1,4 @@
-package com.github.onlaait.warudodownloader.mixin;
+package io.github.onlaait.warudodownloader.mixin;
 
 import net.minecraft.client.gui.screens.worldselection.CreateWorldScreen;
 import net.minecraft.server.WorldLoader;

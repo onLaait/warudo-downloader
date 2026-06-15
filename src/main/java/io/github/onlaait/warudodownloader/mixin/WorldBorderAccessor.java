@@ -1,4 +1,4 @@
-package com.github.onlaait.warudodownloader.mixin;
+package io.github.onlaait.warudodownloader.mixin;
 
 import net.minecraft.world.level.border.WorldBorder;
 import org.spongepowered.asm.mixin.Mixin;

@@ -17,7 +17,7 @@
 	"entrypoints": {
 		"client": [
 			{
-				"value": "com.github.onlaait.warudodownloader.WarudoDownloader",
+				"value": "io.github.onlaait.warudodownloader.WarudoDownloader",
 				"adapter": "kotlin"
 			}
 		]
