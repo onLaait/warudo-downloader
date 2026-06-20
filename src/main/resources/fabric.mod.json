@@ -9,7 +9,8 @@
 	],
 	"contact": {
 		"homepage": "https://modrinth.com/mod/warudo-downloader",
-		"sources": "https://github.com/onLaait/warudo-downloader"
+		"sources": "https://github.com/onLaait/warudo-downloader",
+		"issues": "https://github.com/onLaait/warudo-downloader/issues"
 	},
 	"license": "LGPL-3.0",
 	"icon": "assets/warudo-downloader/icon.png",

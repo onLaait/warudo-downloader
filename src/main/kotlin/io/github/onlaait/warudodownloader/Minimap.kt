@@ -1,23 +1,29 @@
 package io.github.onlaait.warudodownloader
 
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
+import net.minecraft.resources.Identifier
 import kotlin.math.max
 import kotlin.math.min
 
-class WorldCanvas {
+class Minimap {
 
     companion object {
         private const val SIZE = 100
         private const val MAX_DISTANCE: Int = SIZE * 1
 
-        var instance: WorldCanvas? = null
+        var instance: Minimap? = null
 
-        val hudLayer = HudElement { graphics, _ ->
-            val canvas = instance ?: return@HudElement
+        private val hudLayer = HudElement { graphics, _ ->
+            val minimap = instance ?: return@HudElement
             if (Minecraft.getInstance().debugEntries.isOverlayVisible) return@HudElement
-            canvas.draw(graphics)
+            minimap.draw(graphics)
+        }
+
+        init {
+            HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(WarudoDownloader.MOD_ID, "minimap"), hudLayer)
         }
     }
 

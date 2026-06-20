@@ -23,10 +23,10 @@ object DownloadworldCommand {
                             return@executes start(ctx.source, 10)
                         }
                         .then(
-                            argument("range", IntegerArgumentType.integer(0, 32))
+                            argument("distance", IntegerArgumentType.integer(0, 32))
                                 .executes { ctx ->
-                                    val range = IntegerArgumentType.getInteger(ctx, "range")
-                                    return@executes start(ctx.source, range)
+                                    val distance = IntegerArgumentType.getInteger(ctx, "distance")
+                                    return@executes start(ctx.source, distance)
                                 }
                         )
 
@@ -45,12 +45,12 @@ object DownloadworldCommand {
         )
     }
 
-    private fun start(source: FabricClientCommandSource, range: Int): Int {
+    private fun start(source: FabricClientCommandSource, distance: Int): Int {
         if (WD.isStarted()) {
             source.sendError(Component.literal("Already downloading the world."))
             return 0
         }
-        WD.start(range)
+        WD.start(distance)
         return 1
     }
 }

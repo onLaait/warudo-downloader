@@ -69,7 +69,7 @@ object WD {
 
     private var current: WDC? = null
 
-    fun init() {
+    init {
         ClientTickEvents.END_WORLD_TICK.register { currentLevel ->
             onWorldTick(currentLevel)
         }
@@ -79,6 +79,7 @@ object WD {
     }
 
     fun start(range: Int) {
+        require(!isStarted())
         current = WDC(range)
     }
 
@@ -92,8 +93,8 @@ object WD {
         }
         val player = wd.mc.player ?: return
         val chunkPos = player.chunkPosition()
-        wd.canvas.playerX = chunkPos.x
-        wd.canvas.playerY = chunkPos.z
+        wd.minimap.playerX = chunkPos.x
+        wd.minimap.playerY = chunkPos.z
         if (chunkPos == wd.lastChunkPos) return
 
         wd.saveAllInRange(chunkPos)
@@ -150,7 +151,7 @@ object WD {
         val mc = Minecraft.getInstance()
         val level = mc.level!!
         var lastChunkPos: ChunkPos? = null
-        val worldPathName = "WD_" + (mc.currentServer?.ip?.replaceFirst(":", "") ?: "localworld")
+        val worldPathStr = "WD_" + (mc.currentServer?.ip?.replaceFirst(":", "") ?: "localworld")
         val chunkWorker: IOWorker
         val entitiesWorker: IOWorker
         val dimensionDataStorage: DimensionDataStorage
@@ -158,19 +159,19 @@ object WD {
         var ticksToSave = 0
         var lastChunks = ArrayList<Long>(nMaxChunkInRange)
         var currentChunks = ArrayList<Long>(nMaxChunkInRange)
-        val canvas = WorldCanvas()
+        val minimap = Minimap()
         val nMaxChunkInRange: Int
             get() = (range * 2 + 1).let { it * it }
 
         init {
             val player = mc.player!!
-            val levelPath = mc.levelSource.getLevelPath(worldPathName)
+            val levelPath = mc.levelSource.getLevelPath(worldPathStr)
             val regionPath = levelPath.resolve("region")
             val regionStorageInfo = RegionStorageInfo("WD", Level.OVERWORLD, "chunk")
             chunkWorker = IOWorkerAccessor.init(regionStorageInfo, regionPath, false)
             entitiesWorker = IOWorkerAccessor.init(RegionStorageInfo("WD", Level.OVERWORLD, "entities"), levelPath.resolve("entities"), false)
 
-            val levelStorageAccess = mc.levelSource.createAccess(worldPathName)
+            val levelStorageAccess = mc.levelSource.createAccess(worldPathStr)
 
             val frozen = createWorld(levelStorageAccess)
 
@@ -202,10 +203,10 @@ object WD {
             val files = WorldUpgraderAbstractUpgraderAccessor.getAllChunkPositions(regionStorageInfo, regionPath)
             files.forEach { file ->
                 file.chunksToUpgrade.forEach {
-                    canvas.addPixel(it.x, it.z)
+                    minimap.addPixel(it.x, it.z)
                 }
             }
-            canvas.init()
+            minimap.init()
 
             player.displayClientMessage(
                 Component.empty()
@@ -296,7 +297,7 @@ object WD {
                         val complete = WorldDimensions(mapOf(LevelStem.OVERWORLD to levelStem))
                             .bake(registry)
                         val levelSettings = LevelSettings(
-                            "world",
+                            "Downloaded World: ${mc.currentServer?.ip ?: "localworld"}",
                             GameType.SPECTATOR,
                             false,
                             Difficulty.NORMAL,
@@ -454,7 +455,7 @@ object WD {
             chunkWorker.close()
             entitiesWorker.close()
             dimensionDataStorage.close()
-            canvas.dispose()
+            minimap.dispose()
 
             val player = mc.player
             if (player == null) {
@@ -491,7 +492,7 @@ object WD {
             saveEntities(chunkAccess)
             chunkAccess.pos.run {
                 currentChunks += toLong()
-                canvas.addPixel(x, z)
+                minimap.addPixel(x, z)
             }
         }
 
