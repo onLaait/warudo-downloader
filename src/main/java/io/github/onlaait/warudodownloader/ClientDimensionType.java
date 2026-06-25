@@ -6,6 +6,7 @@ import net.minecraft.core.registries.Registries;
 import net.minecraft.tags.TagKey;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.world.attribute.EnvironmentAttributeMap;
+import net.minecraft.world.level.CardinalLighting;
 import net.minecraft.world.level.dimension.DimensionType;
 
 import java.util.Collections;
@@ -14,7 +15,32 @@ public final class ClientDimensionType {
 
     public static final Codec<DimensionType> DIRECT_CODEC = createDirectCodec(EnvironmentAttributeMap.NETWORK_CODEC);
 
-    private static Codec<DimensionType> createDirectCodec(Codec<EnvironmentAttributeMap> codec) {
+    private static Codec<DimensionType> createDirectCodec(final Codec<EnvironmentAttributeMap> attributeMapCodec) {
+        return ExtraCodecs.catchDecoderException(
+                RecordCodecBuilder.create(
+                        i -> i.group(
+                                        Codec.BOOL.optionalFieldOf("has_fixed_time", false).forGetter(DimensionType::hasFixedTime),
+                                        Codec.BOOL.fieldOf("has_skylight").forGetter(DimensionType::hasSkyLight),
+                                        Codec.BOOL.fieldOf("has_ceiling").forGetter(DimensionType::hasCeiling),
+                                        Codec.BOOL.fieldOf("has_ender_dragon_fight").forGetter(DimensionType::hasEnderDragonFight),
+                                        Codec.doubleRange(1.0E-5F, 3.0E7).fieldOf("coordinate_scale").forGetter(DimensionType::coordinateScale),
+                                        Codec.intRange(DimensionType.MIN_Y, DimensionType.MAX_Y).fieldOf("min_y").forGetter(DimensionType::minY),
+                                        Codec.intRange(16, DimensionType.Y_SIZE).fieldOf("height").forGetter(DimensionType::height),
+                                        Codec.intRange(0, DimensionType.Y_SIZE).fieldOf("logical_height").forGetter(DimensionType::logicalHeight),
+                                        TagKey.hashedCodec(Registries.BLOCK).fieldOf("infiniburn").forGetter(DimensionType::infiniburn),
+                                        Codec.FLOAT.fieldOf("ambient_light").forGetter(DimensionType::ambientLight),
+                                        DimensionType.MonsterSettings.CODEC.forGetter(DimensionType::monsterSettings),
+                                        DimensionType.Skybox.CODEC.optionalFieldOf("skybox", DimensionType.Skybox.OVERWORLD).forGetter(DimensionType::skybox),
+                                        CardinalLighting.Type.CODEC.optionalFieldOf("cardinal_light", CardinalLighting.Type.DEFAULT).forGetter(DimensionType::cardinalLightType),
+                                        attributeMapCodec.optionalFieldOf("attributes", EnvironmentAttributeMap.EMPTY).forGetter(DimensionType::attributes),
+                                        ExtraCodecs.compactListCodec(Codec.STRING).optionalFieldOf("timelines", Collections.emptyList()).forGetter(dimensionType -> dimensionType.timelines().stream().map(a -> a.unwrapKey().get().identifier().toString()).toList()),
+                                        Codec.STRING.optionalFieldOf("default_clock").forGetter(dimensionType -> dimensionType.defaultClock().map(_ -> "minecraft:overworld"))
+                                )
+                                .apply(i, (_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) -> null)
+                )
+        );
+    }
+/*    private static Codec<DimensionType> createDirectCodec(Codec<EnvironmentAttributeMap> codec) {
         return ExtraCodecs.catchDecoderException(
                 RecordCodecBuilder.create(
                         instance -> instance.group(
@@ -38,5 +64,5 @@ public final class ClientDimensionType {
                                 .apply(instance, (T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14) -> null)
                 )
         );
-    }
+    }*/
 }

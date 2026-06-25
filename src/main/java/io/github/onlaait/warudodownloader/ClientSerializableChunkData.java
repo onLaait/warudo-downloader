@@ -21,87 +21,83 @@ import java.util.*;
 public class ClientSerializableChunkData {
 
     // FROM net.minecraft.world.level.chunk.storage.SerializableChunkData.copyOf
-    public static SerializableChunkData copyOf(ClientLevel clientLevel, ChunkAccess chunkAccess) {
-        var serverLevel = clientLevel;
-
-        if (!chunkAccess.canBeSerialized()) {
-            throw new IllegalArgumentException("Chunk can't be serialized: " + chunkAccess);
-        } else {
-            ChunkPos chunkPos = chunkAccess.getPos();
-            List<SerializableChunkData.SectionData> list = new ArrayList();
-            LevelChunkSection[] levelChunkSections = chunkAccess.getSections();
-            LevelLightEngine levelLightEngine = serverLevel.getChunkSource().getLightEngine();
-
-            for (int i = levelLightEngine.getMinLightSection(); i < levelLightEngine.getMaxLightSection(); i++) {
-                int j = chunkAccess.getSectionIndexFromSectionY(i);
-                boolean bl = j >= 0 && j < levelChunkSections.length;
-                DataLayer dataLayer = levelLightEngine.getLayerListener(LightLayer.BLOCK).getDataLayerData(SectionPos.of(chunkPos, i));
-                DataLayer dataLayer2 = levelLightEngine.getLayerListener(LightLayer.SKY).getDataLayerData(SectionPos.of(chunkPos, i));
-                DataLayer dataLayer3 = dataLayer != null && !dataLayer.isEmpty() ? dataLayer.copy() : null;
-                DataLayer dataLayer4 = dataLayer2 != null && !dataLayer2.isEmpty() ? dataLayer2.copy() : null;
-                if (bl || dataLayer3 != null || dataLayer4 != null) {
-                    LevelChunkSection levelChunkSection = bl ? levelChunkSections[j].copy() : null;
-                    list.add(new SerializableChunkData.SectionData(i, levelChunkSection, dataLayer3, dataLayer4));
-                }
-            }
-
-            List<CompoundTag> list2 = new ArrayList(chunkAccess.getBlockEntitiesPos().size());
-
-            for (BlockPos blockPos : chunkAccess.getBlockEntitiesPos()) {
-                CompoundTag compoundTag = chunkAccess.getBlockEntityNbtForSaving(blockPos, serverLevel.registryAccess());
-                if (compoundTag != null) {
-                    list2.add(compoundTag);
-                }
-            }
-
-            List<CompoundTag> list3 = new ArrayList();
-            long[] ls = null;
-            if (chunkAccess.getPersistedStatus().getChunkType() == ChunkType.PROTOCHUNK) {
-                ProtoChunk protoChunk = (ProtoChunk)chunkAccess;
-                list3.addAll(protoChunk.getEntities());
-                CarvingMask carvingMask = protoChunk.getCarvingMask();
-                if (carvingMask != null) {
-                    ls = carvingMask.toArray();
-                }
-            }
-
-            Map<Heightmap.Types, long[]> map = new EnumMap(Heightmap.Types.class);
-
-            for (Map.Entry<Heightmap.Types, Heightmap> entry : chunkAccess.getHeightmaps()) {
-                if (chunkAccess.getPersistedStatus().heightmapsAfter().contains(entry.getKey())) {
-                    long[] ms = ((Heightmap)entry.getValue()).getRawData();
-                    map.put((Heightmap.Types)entry.getKey(), (long[])ms.clone());
-                }
-            }
-
-            ChunkAccess.PackedTicks packedTicks = chunkAccess.getTicksForSerialization(serverLevel.getGameTime());
-            ShortList[] shortLists = (ShortList[])Arrays.stream(chunkAccess.getPostProcessing())
-                    .map(shortList -> shortList != null && !shortList.isEmpty() ? new ShortArrayList(shortList) : null)
-                    .toArray(ShortList[]::new);
-/*            CompoundTag compoundTag2 = packStructureData(
-                    StructurePieceSerializationContext.fromLevel(serverLevel), chunkPos, chunkAccess.getAllStarts(), chunkAccess.getAllReferences()
-            );*/
-            CompoundTag compoundTag2 = new CompoundTag();
-            return new SerializableChunkData(
-                    serverLevel.palettedContainerFactory(),
-                    chunkPos,
-                    chunkAccess.getMinSectionY(),
-                    serverLevel.getGameTime(),
-                    chunkAccess.getInhabitedTime(),
-                    chunkAccess.getPersistedStatus(),
-                    Optionull.map(chunkAccess.getBlendingData(), BlendingData::pack),
-                    chunkAccess.getBelowZeroRetrogen(),
-                    chunkAccess.getUpgradeData().copy(),
-                    ls,
-                    map,
-                    packedTicks,
-                    shortLists,
-                    chunkAccess.isLightCorrect(),
-                    list,
-                    list3,
-                    list2,
-                    compoundTag2
-            );
+    public static SerializableChunkData copyOf(final ClientLevel level, final ChunkAccess chunk) {
+        if (!chunk.canBeSerialized()) {
+            throw new IllegalArgumentException("Chunk can't be serialized: " + chunk);
         }
+
+        ChunkPos pos = chunk.getPos();
+        List<SerializableChunkData.SectionData> sectionData = new ArrayList<>();
+        LevelChunkSection[] chunkSections = chunk.getSections();
+        LevelLightEngine lightEngine = level.getChunkSource().getLightEngine();
+
+        for (int sectionY = lightEngine.getMinLightSection(); sectionY < lightEngine.getMaxLightSection(); sectionY++) {
+            int sectionIndex = chunk.getSectionIndexFromSectionY(sectionY);
+            boolean hasSection = sectionIndex >= 0 && sectionIndex < chunkSections.length;
+            DataLayer sourceBlockLight = lightEngine.getLayerListener(LightLayer.BLOCK).getDataLayerData(SectionPos.of(pos, sectionY));
+            DataLayer sourceSkyLight = lightEngine.getLayerListener(LightLayer.SKY).getDataLayerData(SectionPos.of(pos, sectionY));
+            DataLayer blockLight = sourceBlockLight != null && !sourceBlockLight.isEmpty() ? sourceBlockLight.copy() : null;
+            DataLayer skyLight = sourceSkyLight != null && !sourceSkyLight.isEmpty() ? sourceSkyLight.copy() : null;
+            if (hasSection || blockLight != null || skyLight != null) {
+                LevelChunkSection section = hasSection ? chunkSections[sectionIndex].copy() : null;
+                sectionData.add(new SerializableChunkData.SectionData(sectionY, section, blockLight, skyLight));
+            }
+        }
+
+        List<CompoundTag> blockEntities = new ArrayList<>(chunk.getBlockEntitiesPos().size());
+
+        for (BlockPos blockPos : chunk.getBlockEntitiesPos()) {
+            CompoundTag blockEntityTag = chunk.getBlockEntityNbtForSaving(blockPos, level.registryAccess());
+            if (blockEntityTag != null) {
+                blockEntities.add(blockEntityTag);
+            }
+        }
+
+        List<CompoundTag> entities = new ArrayList<>();
+        long[] carvingMask = null;
+        if (chunk.getPersistedStatus().getChunkType() == ChunkType.PROTOCHUNK) {
+            ProtoChunk protoChunk = (ProtoChunk)chunk;
+            entities.addAll(protoChunk.getEntities());
+            CarvingMask existingMask = protoChunk.getCarvingMask();
+            if (existingMask != null) {
+                carvingMask = existingMask.toArray();
+            }
+        }
+
+        Map<Heightmap.Types, long[]> heightmaps = new EnumMap<>(Heightmap.Types.class);
+
+        for (Map.Entry<Heightmap.Types, Heightmap> entry : chunk.getHeightmaps()) {
+            if (chunk.getPersistedStatus().heightmapsAfter().contains(entry.getKey())) {
+                long[] data = entry.getValue().getRawData();
+                heightmaps.put(entry.getKey(), (long[])data.clone());
+            }
+        }
+
+        ChunkAccess.PackedTicks ticksForSerialization = chunk.getTicksForSerialization(level.getGameTime());
+        ShortList[] postProcessingSections = Arrays.stream(chunk.getPostProcessing())
+                .map(shorts -> shorts != null && !shorts.isEmpty() ? new ShortArrayList(shorts) : null)
+                .toArray(ShortList[]::new);
+//        CompoundTag structureData = packStructureData(StructurePieceSerializationContext.fromLevel(level), pos, chunk.getAllStarts(), chunk.getAllReferences());
+        CompoundTag structureData = new CompoundTag();
+        return new SerializableChunkData(
+                level.palettedContainerFactory(),
+                pos,
+                chunk.getMinSectionY(),
+                level.getGameTime(),
+                chunk.getInhabitedTime(),
+                chunk.getPersistedStatus(),
+                Optionull.map(chunk.getBlendingData(), BlendingData::pack),
+                chunk.getBelowZeroRetrogen(),
+                chunk.getUpgradeData().copy(),
+                carvingMask,
+                heightmaps,
+                ticksForSerialization,
+                postProcessingSections,
+                chunk.isLightCorrect(),
+                sectionData,
+                entities,
+                blockEntities,
+                structureData
+        );
     }
 }

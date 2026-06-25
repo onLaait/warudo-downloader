@@ -15,7 +15,6 @@ import net.minecraft.client.player.RemotePlayer
 import net.minecraft.core.Holder
 import net.minecraft.core.MappedRegistry
 import net.minecraft.core.Registry
-import net.minecraft.core.RegistryAccess
 import net.minecraft.core.registries.Registries
 import net.minecraft.nbt.CompoundTag
 import net.minecraft.nbt.ListTag
@@ -30,7 +29,6 @@ import net.minecraft.server.packs.metadata.pack.PackMetadataSection
 import net.minecraft.server.packs.repository.PackRepository
 import net.minecraft.server.packs.repository.ServerPacksSource
 import net.minecraft.util.*
-import net.minecraft.world.Difficulty
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.EquipmentSlot
@@ -42,26 +40,30 @@ import net.minecraft.world.flag.FeatureFlags
 import net.minecraft.world.item.component.ResolvableProfile
 import net.minecraft.world.level.*
 import net.minecraft.world.level.biome.Biome
+import net.minecraft.world.level.border.WorldBorder
 import net.minecraft.world.level.chunk.ChunkAccess
 import net.minecraft.world.level.chunk.storage.IOWorker
 import net.minecraft.world.level.chunk.storage.RegionStorageInfo
 import net.minecraft.world.level.dimension.DimensionType
 import net.minecraft.world.level.dimension.LevelStem
 import net.minecraft.world.level.gamerules.GameRule
+import net.minecraft.world.level.gamerules.GameRuleMap
 import net.minecraft.world.level.gamerules.GameRules
 import net.minecraft.world.level.levelgen.FlatLevelSource
 import net.minecraft.world.level.levelgen.WorldDimensions
+import net.minecraft.world.level.levelgen.WorldGenSettings
 import net.minecraft.world.level.levelgen.WorldOptions
 import net.minecraft.world.level.levelgen.flat.FlatLevelGeneratorPresets
+import net.minecraft.world.level.saveddata.WeatherData
 import net.minecraft.world.level.saveddata.maps.MapId
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData
 import net.minecraft.world.level.storage.*
 import net.minecraft.world.scores.PlayerTeam
 import net.minecraft.world.scores.Team
 import net.minecraft.world.timeline.Timeline
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.*
 import java.util.concurrent.CompletableFuture
 import kotlin.io.path.*
 
@@ -70,24 +72,24 @@ object WD {
     private var current: WDC? = null
 
     init {
-        ClientTickEvents.END_WORLD_TICK.register { currentLevel ->
-            onWorldTick(currentLevel)
+        ClientTickEvents.END_LEVEL_TICK.register { level ->
+            onLevelTick(level)
         }
         ClientTickEvents.END_CLIENT_TICK.register { mc ->
             onClientTick(mc)
         }
     }
 
-    fun start(range: Int) {
+    fun start(distance: Int) {
         require(!isStarted())
-        current = WDC(range)
+        current = WDC(distance)
     }
 
     fun isStarted(): Boolean = current != null
 
-    private fun onWorldTick(currentLevel: ClientLevel) {
+    private fun onLevelTick(level: ClientLevel) {
         val wd = current ?: return
-        if (currentLevel != wd.level) {
+        if (level != wd.level) {
             stop()
             return
         }
@@ -108,7 +110,7 @@ object WD {
         }
         if (++wd.ticksToSave == 1200) {
             wd.ticksToSave = 0
-            wd.saveMapData()
+            wd.saveDataStorage()
         }
     }
 
@@ -122,7 +124,7 @@ object WD {
         current = null
     }
 
-    private class WDC(val range: Int) {
+    private class WDC(val distance: Int) {
 
         private companion object {
             const val DATAPACK_NAME = "warudodownloader"
@@ -154,34 +156,38 @@ object WD {
         val worldPathStr = "WD_" + (mc.currentServer?.ip?.replaceFirst(":", "") ?: "localworld")
         val chunkWorker: IOWorker
         val entitiesWorker: IOWorker
-        val dimensionDataStorage: DimensionDataStorage
+        lateinit var commonDataStorage: SavedDataStorage
 
         var ticksToSave = 0
         var lastChunks = ArrayList<Long>(nMaxChunkInRange)
         var currentChunks = ArrayList<Long>(nMaxChunkInRange)
         val minimap = Minimap()
         val nMaxChunkInRange: Int
-            get() = (range * 2 + 1).let { it * it }
+            get() = (distance * 2 + 1).let { it * it }
 
         init {
             val player = mc.player!!
-            val levelPath = mc.levelSource.getLevelPath(worldPathStr)
-            val regionPath = levelPath.resolve("region")
-            val regionStorageInfo = RegionStorageInfo("WD", Level.OVERWORLD, "chunk")
-            chunkWorker = IOWorkerAccessor.init(regionStorageInfo, regionPath, false)
-            entitiesWorker = IOWorkerAccessor.init(RegionStorageInfo("WD", Level.OVERWORLD, "entities"), levelPath.resolve("entities"), false)
+            val levelStorage = mc.levelSource.createAccess(worldPathStr)
+            val levelPath = levelStorage.levelDirectory.path
 
-            val levelStorageAccess = mc.levelSource.createAccess(worldPathStr)
+            val chunkStorageInfo = RegionStorageInfo(levelStorage.levelId, Level.OVERWORLD, "chunk")
+            val regionPath = levelStorage.getDimensionPath(Level.OVERWORLD).resolve("region")
+            chunkWorker = IOWorkerAccessor.init(chunkStorageInfo, regionPath, false)
 
-            val frozen = createWorld(levelStorageAccess)
+            val entitiesStorageInfo = RegionStorageInfo(levelStorage.levelId, Level.OVERWORLD, "entities")
+            val entitiesPath = levelStorage.getDimensionPath(Level.OVERWORLD).resolve("entities")
+            entitiesWorker = IOWorkerAccessor.init(entitiesStorageInfo, entitiesPath, false)
 
-            val dataFolder = levelStorageAccess.getDimensionPath(Level.OVERWORLD).resolve("data")
-            levelStorageAccess.safeClose()
-            dataFolder.createDirectories()
-            dimensionDataStorage = DimensionDataStorage(dataFolder, mc.fixerUpper, frozen)
+            createWorld(levelStorage)
+
+            (level as ClientLevelAccessor).`warudodownloader$getAllMapData`().forEach { (mapId, data) ->
+                setMapData(mapId, data)
+            }
+
+            saveDataStorage()
 
             mc.connection!!.serverData?.iconBytes?.let { icon ->
-                levelPath.resolve("icon.png").writeBytes(icon)
+                levelStorage.getLevelPath(LevelResource.ICON_FILE).writeBytes(icon)
             }
 
             for ((i, data) in ((Minecraft.getInstance().downloadedPackSource as DownloadedPackSourceAccessor).`warudodownloader$getManager`() as ServerPackManagerAccessor).`warudodownloader$getPacks`().withIndex()) {
@@ -195,27 +201,20 @@ object WD {
                 path.copyTo(levelPath.resolve(fileName))
             }
 
-            (level as ClientLevelAccessor).`warudodownloader$getAllMapData`().forEach { (mapId, data) ->
-                setMapData(mapId, data)
-            }
-            saveMapData()
+            levelStorage.safeClose()
 
-            val files = WorldUpgraderAbstractUpgraderAccessor.getAllChunkPositions(regionStorageInfo, regionPath)
-            files.forEach { file ->
-                file.chunksToUpgrade.forEach {
+            val regionFileChunks = RegionStorageUpgraderAccessor.getAllChunkPositions(chunkStorageInfo, regionPath)
+            regionFileChunks.forEach { regionFileChunk ->
+                regionFileChunk.chunksToUpgrade.forEach {
                     minimap.addPixel(it.x, it.z)
                 }
             }
             minimap.init()
 
-            player.displayClientMessage(
-                Component.empty()
-                    .append("Started downloading the world. (range: $range)"),
-                false
-            )
+            player.sendSystemMessage(Component.literal("Started downloading the world. (distance: $distance)"))
         }
 
-        fun createWorld(levelStorageAccess: LevelStorageSource.LevelStorageAccess): RegistryAccess.Frozen {
+        fun createWorld(levelStorage: LevelStorageSource.LevelStorageAccess) {
             val packRepository: PackRepository
             val worldDataConfiguration: WorldDataConfiguration
 
@@ -224,26 +223,31 @@ object WD {
                 packRepository = PackRepository(ServerPacksSource(mc.directoryValidator()))
                 worldDataConfiguration = WorldDataConfiguration.DEFAULT
             } else {
-                val datapackDir = levelStorageAccess.getLevelPath(LevelResource.DATAPACK_DIR).resolve(DATAPACK_NAME)
+                val datapackDir = levelStorage.getLevelPath(LevelResource.DATAPACK_DIR)
+                val packDir = datapackDir.resolve(DATAPACK_NAME)
                 @OptIn(ExperimentalPathApi::class)
-                datapackDir.deleteRecursively()
-                datapackDir.createParentDirectories()
+                packDir.deleteRecursively()
+                packDir.createDirectories()
+                val description = Component.literal("Downloaded data")
 
                 // FROM net.minecraft.server.commands.DataPackCommand.createPack
-                val path2 = datapackDir
-                val packMetadataSection = PackMetadataSection(Component.literal("Downloaded data"), SharedConstants.getCurrentVersion().packVersion(PackType.SERVER_DATA).minorRange())
-                val dataResult = PackMetadataSection.SERVER_TYPE.codec().encodeStart(JsonOps.INSTANCE, packMetadataSection)
-                val jsonObject = JsonObject()
-                jsonObject.add(PackMetadataSection.SERVER_TYPE.name(), dataResult.getOrThrow())
-                Files.createDirectory(path2)
-                Files.createDirectory(path2.resolve(PackType.SERVER_DATA.directory))
-                JsonWriter(path2.resolve("pack.mcmeta").bufferedWriter()).use { jsonWriter ->
-                    jsonWriter.serializeNulls = false
-                    jsonWriter.setIndent("  ")
-                    GsonHelper.writeValue(jsonWriter, jsonObject, null)
+                val packMetadataSection = PackMetadataSection(
+                    description, SharedConstants.getCurrentVersion().packVersion(PackType.SERVER_DATA).minorRange()
+                )
+                val encodedMeta = PackMetadataSection.SERVER_TYPE.codec().encodeStart(JsonOps.INSTANCE, packMetadataSection)
+
+                val topMcmeta = JsonObject()
+                topMcmeta.add(PackMetadataSection.SERVER_TYPE.name(), encodedMeta.getOrThrow())
+
+                Files.newBufferedWriter(packDir.resolve("pack.mcmeta"), StandardCharsets.UTF_8).use { mcmetaFile ->
+                    JsonWriter(mcmetaFile).use { jsonWriter ->
+                        jsonWriter.serializeNulls = false
+                        jsonWriter.setIndent("  ")
+                        GsonHelper.writeValue(jsonWriter, topMcmeta, null)
+                    }
                 }
 
-                val dataDir = path2.resolve("data")
+                val dataDir = packDir.resolve(PackType.SERVER_DATA.directory)
                 nonVanillaDatas.dimensionType?.let { dimensionType ->
                     writeData(dataDir, Registries.DIMENSION_TYPE, dimensionType.id, dimensionType.data)
                 }
@@ -255,10 +259,73 @@ object WD {
                 }
                 val dataPackConfig = DataPackConfig(DataPackConfig.DEFAULT.enabled + "file/$DATAPACK_NAME", DataPackConfig.DEFAULT.disabled)
                 worldDataConfiguration = WorldDataConfiguration(dataPackConfig, FeatureFlags.DEFAULT_FLAGS)
-                packRepository = ServerPacksSource.createPackRepository(levelStorageAccess)
+                packRepository = ServerPacksSource.createPackRepository(levelStorage)
                 packRepository.reload()
                 packRepository.setSelected(worldDataConfiguration.dataPacks.enabled)
             }
+
+            val initConfig = CreateWorldScreenAccessor.createDefaultLoadConfig(packRepository, worldDataConfiguration)
+            val worldStem = Util.blockUntilDone { executor ->
+                lateinit var dimensions: WorldDimensions
+                WorldLoader.load(
+                    initConfig,
+                    { dataLoadContext ->
+                        val provider = dataLoadContext.datapackWorldgen
+                        val dimensionType = provider
+                            .lookupOrThrow(Registries.DIMENSION_TYPE)
+                            .getOrThrow(level.dimensionTypeRegistration().unwrapKey().get())
+                        val settings = provider
+                            .lookupOrThrow(Registries.FLAT_LEVEL_GENERATOR_PRESET)
+                            .getOrThrow(FlatLevelGeneratorPresets.THE_VOID)
+                            .value()
+                            .settings
+                        val levelStem = LevelStem(dimensionType, FlatLevelSource(settings))
+                        val registry = MappedRegistry(Registries.LEVEL_STEM, Lifecycle.stable()).freeze()
+                        dimensions = WorldDimensions(mapOf(LevelStem.OVERWORLD to levelStem))
+                        val complete = dimensions.bake(registry)
+                        val levelSettings = LevelSettings(
+                            "Downloaded World: ${mc.currentServer?.ip ?: "localworld"}",
+                            GameType.SPECTATOR,
+                            LevelSettings.DifficultySettings.DEFAULT,
+                            true,
+                            worldDataConfiguration
+                        )
+                        WorldLoader.DataLoadOutput(
+                            PrimaryLevelData(
+                                levelSettings,
+                                complete.specialWorldProperty(),
+                                complete.lifecycle()
+                            ), complete.dimensionsRegistryAccess()
+                        )
+                    },
+                    { closeableResourceManager, reloadableServerResources, layeredRegistryAccess, worldData ->
+                        val worldOption = WorldOptions(0L, false, false)
+                        val genSettings = WorldGenSettings(worldOption, dimensions)
+                        val worldDataAndGenSettings = LevelDataAndDimensions.WorldDataAndGenSettings(worldData, genSettings)
+                        WorldStem(
+                            closeableResourceManager,
+                            reloadableServerResources,
+                            layeredRegistryAccess,
+                            worldDataAndGenSettings
+                        )
+                    },
+                    Util.backgroundExecutor(),
+                    executor
+                )
+            }.get()
+            val frozen = worldStem.registries.compositeAccess()
+            val worldData = worldStem.worldDataAndGenSettings.data as PrimaryLevelData
+            worldData.run {
+                val clientLevelData = level.levelData
+                setSpawn(clientLevelData.respawnData)
+                isInitialized = true
+            }
+            levelStorage.saveDataTag(worldData, null)
+
+            val commonDataFolder = levelStorage.getLevelPath(LevelResource.DATA)
+            commonDataStorage = SavedDataStorage(commonDataFolder, mc.fixerUpper, frozen)
+
+            commonDataStorage.set(WorldGenSettings.TYPE, worldStem.worldDataAndGenSettings.genSettings)
 
             val gameRules = GameRules(worldDataConfiguration.enabledFeatures).apply {
                 arrayOf(
@@ -278,67 +345,18 @@ object WD {
                     setGameRule(k, v)
                 }
             }
-            val initConfig = CreateWorldScreenAccessor.createDefaultLoadConfig(packRepository, worldDataConfiguration)
-            val worldStem = Util.blockUntilDone { executor ->
-                WorldLoader.load(
-                    initConfig,
-                    { dataLoadContext ->
-                        val provider = dataLoadContext.datapackWorldgen
-                        val dimensionType = provider
-                            .lookupOrThrow(Registries.DIMENSION_TYPE)
-                            .getOrThrow(level.dimensionTypeRegistration().unwrapKey().get())
-                        val settings = provider
-                            .lookupOrThrow(Registries.FLAT_LEVEL_GENERATOR_PRESET)
-                            .getOrThrow(FlatLevelGeneratorPresets.THE_VOID)
-                            .value()
-                            .settings
-                        val levelStem = LevelStem(dimensionType, FlatLevelSource(settings))
-                        val registry = MappedRegistry(Registries.LEVEL_STEM, Lifecycle.stable()).freeze()
-                        val complete = WorldDimensions(mapOf(LevelStem.OVERWORLD to levelStem))
-                            .bake(registry)
-                        val levelSettings = LevelSettings(
-                            "Downloaded World: ${mc.currentServer?.ip ?: "localworld"}",
-                            GameType.SPECTATOR,
-                            false,
-                            Difficulty.NORMAL,
-                            true,
-                            gameRules,
-                            worldDataConfiguration
-                        )
-                        WorldLoader.DataLoadOutput(
-                            PrimaryLevelData(
-                                levelSettings,
-                                WorldOptions(0L, false, false),
-                                complete.specialWorldProperty(),
-                                complete.lifecycle()
-                            ), complete.dimensionsRegistryAccess()
-                        )
-                    },
-                    { closeableResourceManager, reloadableServerResources, layeredRegistryAccess, worldData ->
-                        WorldStem(
-                            closeableResourceManager,
-                            reloadableServerResources,
-                            layeredRegistryAccess,
-                            worldData
-                        )
-                    },
-                    Util.backgroundExecutor(),
-                    executor
-                )
-            }.get()
-            val frozen = worldStem.registries.compositeAccess()
-            val worldData = worldStem.worldData as PrimaryLevelData
-            worldData.run {
-                val clientLevelData = level.levelData
-                setSpawn(clientLevelData.respawnData)
-                dayTime = clientLevelData.dayTime
-                isRaining = clientLevelData.isRaining
-                isThundering = clientLevelData.isThundering
-                isInitialized = true
-                legacyWorldBorderSettings = Optional.of((level.worldBorder as WorldBorderAccessor).`warudodownloader$getSettings`())
+            val gameRuleMap = (gameRules as GameRulesAccessor).`warudodownloader$getRules`()
+            commonDataStorage.set(GameRuleMap.TYPE, gameRuleMap)
+
+            val weatherData = WeatherData(0, 0, 0, level.isRaining, level.isThundering)
+            commonDataStorage.set(WeatherData.TYPE, weatherData)
+
+            val overworldDataFolder = levelStorage.getDimensionPath(Level.OVERWORLD).resolve("data")
+//            overworldDataFolder.createDirectories()
+            SavedDataStorage(overworldDataFolder, mc.fixerUpper, frozen).use { overworldDataStorage ->
+                overworldDataStorage.set(WorldBorder.TYPE, level.worldBorder)
+                overworldDataStorage.saveAndJoin()
             }
-            levelStorageAccess.saveDataTag(frozen, worldData)
-            return frozen
         }
 
         private fun getNonVanillaDatas(): NonVanillaDatas {
@@ -347,51 +365,48 @@ object WD {
             lateinit var vanillaDimensionTypes: List<Holder.Reference<DimensionType>>
             lateinit var vanillaBiomes: List<Holder.Reference<Biome>>
             lateinit var vanillaTimelines: List<Holder.Reference<Timeline>>
-            Util.blockUntilDone { executor ->
-                try {
-                    WorldLoader.load<Any, Any>(
-                        initConfig,
-                        { dataLoadContext ->
-                            val provider = dataLoadContext.datapackWorldgen
-                            vanillaDimensionTypes = provider.lookupOrThrow(Registries.DIMENSION_TYPE).listElements().toList()
-                            vanillaBiomes = provider.lookupOrThrow(Registries.BIOME).listElements().toList()
-                            vanillaTimelines = provider.lookupOrThrow(Registries.TIMELINE).listElements().toList()
-                            throw InterruptedException()
-                        },
-                        { _, _, _, _ -> 0 },
-                        Util.backgroundExecutor(),
-                        executor
-                    )
-                } catch (_: InterruptedException) {
-                }
-                CompletableFuture.completedFuture(0)
-            }.get()
+            try {
+                val load = WorldLoader.load<Any, Any>(
+                    initConfig,
+                    { dataLoadContext ->
+                        val provider = dataLoadContext.datapackWorldgen
+                        vanillaDimensionTypes = provider.lookupOrThrow(Registries.DIMENSION_TYPE).listElements().toList()
+                        vanillaBiomes = provider.lookupOrThrow(Registries.BIOME).listElements().toList()
+                        vanillaTimelines = provider.lookupOrThrow(Registries.TIMELINE).listElements().toList()
+                        throw InterruptedException()
+                    },
+                    { _, _, _, _ -> 0 },
+                    Util.backgroundExecutor(),
+                    mc
+                )
+                mc.managedBlock(load::isDone)
+            } catch (_: InterruptedException) {
+            }
             val dynamicOps = level.registryAccess().createSerializationContext(NbtOps.INSTANCE)
 
+            // DimensionType
             var nonVanillaDimensionType: NonVanillaDatas.DimensionType? = null
-            WarudoDownloader.logger.info("vanillaDimensionTypes: $vanillaDimensionTypes")
+            WarudoDownloader.LOGGER.info("vanillaDimensionTypes: $vanillaDimensionTypes")
             val levelDimensionTypeHolder = level.dimensionTypeRegistration()
-            WarudoDownloader.logger.info("levelDimensionType: $levelDimensionTypeHolder")
+            WarudoDownloader.LOGGER.info("levelDimensionType: $levelDimensionTypeHolder")
             val levelDimensionTypeId = levelDimensionTypeHolder.unwrapKey().get()
             val levelDimensionType = level.dimensionType()
             val dimensionTypeCodec = ClientDimensionType.DIRECT_CODEC
-            WarudoDownloader.logger.info("vanillaDimensionTypeTags: ${vanillaDimensionTypes.associate { it.key() to dimensionTypeCodec.encodeStart(dynamicOps, it.value()).getOrThrow() }}")
             val levelDimensionTypeTag = dimensionTypeCodec.encodeStart(dynamicOps, levelDimensionType).getOrThrow()
-            WarudoDownloader.logger.info("levelDimensionTypeTag: $levelDimensionTypeTag")
             if (vanillaDimensionTypes.any { it.key() == levelDimensionTypeId && dimensionTypeCodec.encodeStart(dynamicOps, it.value()).getOrThrow() == levelDimensionTypeTag }) {
-                WarudoDownloader.logger.info("levelDimensionType is vanilla")
+                WarudoDownloader.LOGGER.info("levelDimensionType is vanilla")
             } else {
-                WarudoDownloader.logger.info("levelDimensionType is not vanilla")
+                WarudoDownloader.LOGGER.info("levelDimensionType is not vanilla")
                 val json = dimensionTypeCodec.encodeStart(JsonOps.INSTANCE, levelDimensionType).getOrThrow()
                 nonVanillaDimensionType = NonVanillaDatas.DimensionType(levelDimensionTypeId, json)
             }
 
+            // Biome
             val nonVanillaBiomes = mutableListOf<NonVanillaDatas.Biome>()
             val levelBiomes = level.registryAccess().lookupOrThrow(Registries.BIOME).listElements().toList()
-            WarudoDownloader.logger.info("vanillaBiomes: $vanillaBiomes")
-            WarudoDownloader.logger.info("levelBiomes: $levelBiomes")
-            val biomeCodec = Biome.NETWORK_CODEC
-            val biomeWriteCodec = Biome.DIRECT_CODEC
+            WarudoDownloader.LOGGER.info("vanillaBiomes: $vanillaBiomes")
+            WarudoDownloader.LOGGER.info("levelBiomes: $levelBiomes")
+            val biomeCodec = ClientBiome.DIRECT_CODEC
             val vanillaBiomeTags = vanillaBiomes.associate {
                 it.key() to biomeCodec.encodeStart(dynamicOps, it.value()).getOrThrow()
             }
@@ -401,18 +416,18 @@ object WD {
                 val tag = biomeCodec.encodeStart(dynamicOps, value).getOrThrow()
                 val vanillaTag = vanillaBiomeTags[key]
                 if (tag == vanillaTag) continue
-                WarudoDownloader.logger.info("biome not matches: $key\nvanilla: $vanillaTag\nlevel: $tag")
-                val json = biomeWriteCodec.encodeStart(JsonOps.INSTANCE, value).getOrThrow()
+                WarudoDownloader.LOGGER.info("biome not matches: $key\nvanilla: $vanillaTag\nlevel: $tag")
+                val json = biomeCodec.encodeStart(JsonOps.INSTANCE, value).getOrThrow()
                 nonVanillaBiomes += NonVanillaDatas.Biome(key, json)
             }
-            WarudoDownloader.logger.info("nonVanillaBiomes: ${nonVanillaBiomes.map { it.id }}")
+            WarudoDownloader.LOGGER.info("nonVanillaBiomes: ${nonVanillaBiomes.map { it.id }}")
 
+            // Timeline
             val nonVanillaTimelines = mutableListOf<NonVanillaDatas.Timeline>()
-            WarudoDownloader.logger.info("vanillaTimelines: $vanillaTimelines")
+            WarudoDownloader.LOGGER.info("vanillaTimelines: $vanillaTimelines")
             val levelTimelines = levelDimensionType.timelines
-            WarudoDownloader.logger.info("levelTimelines: ${levelTimelines.toList()}")
-            val timelineCodec = Timeline.NETWORK_CODEC
-            val timelineWriteCodec = Timeline.DIRECT_CODEC
+            WarudoDownloader.LOGGER.info("levelTimelines: ${levelTimelines.toList()}")
+            val timelineCodec = ClientTimeline.DIRECT_CODEC
             val vanillaTimelineTags = vanillaTimelines.associate {
                 it.key() to timelineCodec.encodeStart(dynamicOps, it.value()).getOrThrow()
             }
@@ -422,8 +437,8 @@ object WD {
                 val tag = timelineCodec.encodeStart(dynamicOps, value).getOrThrow()
                 val vanillaTag = vanillaTimelineTags[key]
                 if (tag == vanillaTag) continue
-                WarudoDownloader.logger.info("timeline not matches: $key\nvanilla: $vanillaTag\nlevel: $tag")
-                val json = timelineWriteCodec.encodeStart(JsonOps.INSTANCE, value).getOrThrow()
+                WarudoDownloader.LOGGER.info("timeline not matches: $key\nvanilla: $vanillaTag\nlevel: $tag")
+                val json = timelineCodec.encodeStart(JsonOps.INSTANCE, value).getOrThrow()
                 nonVanillaTimelines += NonVanillaDatas.Timeline(key, json)
             }
 
@@ -454,28 +469,24 @@ object WD {
         fun stop() {
             chunkWorker.close()
             entitiesWorker.close()
-            dimensionDataStorage.close()
+            commonDataStorage.close()
             minimap.dispose()
 
             val player = mc.player
             if (player == null) {
-                WarudoDownloader.logger.info("Stopped downloading the world")
+                WarudoDownloader.LOGGER.info("Stopped downloading the world")
             } else {
-                player.displayClientMessage(
-                    Component.empty()
-                        .append("Stopped downloading the world."),
-                    false
-                )
+                player.sendSystemMessage(Component.literal("Stopped downloading the world."))
             }
         }
 
         fun saveAllInRange(chunkPos: ChunkPos) {
             val x = chunkPos.x
             val z = chunkPos.z
-            for (x in (x - range)..(x + range)) {
-                for (z in (z - range)..(z + range)) {
+            for (x in (x - distance)..(x + distance)) {
+                for (z in (z - distance)..(z + distance)) {
                     val chunk = level.chunkSource.getChunk(x, z, false) ?: continue
-                    val l = chunk.pos.toLong()
+                    val l = chunk.pos.pack()
                     currentChunks += l
                     if (!lastChunks.contains(l)) save(chunk)
                 }
@@ -486,62 +497,73 @@ object WD {
             lastChunkPos = chunkPos
         }
 
-        fun save(chunkAccess: ChunkAccess) {
-//            WarudoDownloader.logger.info("Downloading chunk ${chunkAccess.pos}")
-            saveChunk(chunkAccess)
-            saveEntities(chunkAccess)
-            chunkAccess.pos.run {
-                currentChunks += toLong()
+        fun save(chunk: ChunkAccess) {
+//            WarudoDownloader.LOGGER.info("Downloading chunk ${chunk.pos}")
+            saveChunk(chunk)
+            saveEntities(chunk)
+            chunk.pos.run {
+                currentChunks += pack()
                 minimap.addPixel(x, z)
             }
         }
 
-        // FROM net.minecraft.server.level.ChunkMap.save
-        fun saveChunk(chunkAccess: ChunkAccess) {
-            val chunkPos = chunkAccess.pos
-            val serializableChunkData = ClientSerializableChunkData.copyOf(level, chunkAccess)
-            val completableFuture = CompletableFuture.supplyAsync(serializableChunkData::write, Util.backgroundExecutor())
-            chunkWorker.store(chunkPos, completableFuture::join).handle { _, throwable ->
+        fun saveChunk(chunk: ChunkAccess) {
+            // FROM net.minecraft.server.level.ChunkMap.save
+            val pos = chunk.pos
+            val data = ClientSerializableChunkData.copyOf(level, chunk)
+            val encodedData = CompletableFuture.supplyAsync(data::write, Util.backgroundExecutor())
+
+            chunkWorker.store(pos, encodedData::join).handle { _, throwable ->
                 if (throwable != null) {
-                    WarudoDownloader.logger.error("Failed to save chunk {},{}", chunkPos.x, chunkPos.z, throwable)
+                    WarudoDownloader.LOGGER.error("Failed to save chunk {},{}", pos.x, pos.z, throwable)
                 }
                 null
             }
         }
 
-        // FROM net.minecraft.world.level.chunk.storage.EntityStorage.storeEntities
-        fun saveEntities(chunkAccess: ChunkAccess) {
-            val chunkPos = chunkAccess.pos
-            val listTag = ListTag()
-            val compoundTag: CompoundTag
-            ProblemReporter.ScopedCollector(ChunkAccess.problemPath(chunkPos), WarudoDownloader.logger).use { scopedCollector ->
-                (level as ClientLevelAccessor).`warudodownloader$getEntities`().get(ENTITY_TYPE_TEST) { entity ->
-                    try {
-                        val entity = interfereEntity(entity)
-                        if (entity !is Player && entity.chunkPosition() == chunkPos) {
-                            val tagValueOutput = TagValueOutput.createWithContext(scopedCollector.forChild(entity.problemPath()), entity.registryAccess())
-                            if (entity.save(tagValueOutput)) {
-                                interfereSaveData(entity, tagValueOutput)
-                                val compoundTagx = tagValueOutput.buildResult()
-                                listTag.add(compoundTagx)
-                            }
-                        }
-                    } catch (e: Exception) {
-                        val errorMsg = "Failed to save entity ${entity.type}:$entity"
-                        WarudoDownloader.logger.error(errorMsg, e)
-                        Minecraft.getInstance().player?.displayClientMessage(Component.literal(errorMsg).withColor(CommonColors.SOFT_RED), false)
-                    }
+        fun saveEntities(chunk: ChunkAccess) {
+            val pos = chunk.pos
+            val chunkEntities: List<Entity> = run {
+                val list = mutableListOf<Entity>()
+                (level as ClientLevelAccessor).`warudodownloader$getEntities`().get(ENTITY_TYPE_TEST) { e ->
+                    val e = interfereEntity(e)
+                    if (e !is Player && e.chunkPosition() == pos) list += e
                     AbortableIterationConsumer.Continuation.CONTINUE
                 }
-                compoundTag = NbtUtils.addCurrentDataVersion(CompoundTag())
-                compoundTag.put("Entities", listTag)
-                compoundTag.store("Position", ChunkPos.CODEC, chunkPos)
+                list
             }
-            val completableFuture = entitiesWorker.store(chunkPos, compoundTag)
-            completableFuture.exceptionally { throwable ->
-                WarudoDownloader.logger.error("Failed to store entity chunk {}", chunkPos, throwable)
-                null
+            if (chunkEntities.isEmpty()) return
+
+            // FROM net.minecraft.world.level.chunk.storage.EntityStorage.storeEntities
+            val chunkTag: CompoundTag
+            ProblemReporter.ScopedCollector(ChunkAccess.problemPath(pos), WarudoDownloader.LOGGER).use { reporter ->
+                val entities = ListTag()
+                chunkEntities.forEach { e ->
+                    try {
+                        val output = TagValueOutput.createWithContext(reporter.forChild(e.problemPath()), e.registryAccess())
+                        if (e.save(output)) {
+                            interfereSaveData(e, output)
+                            val result = output.buildResult()
+                            entities.add(result)
+                        }
+                    } catch (ex: Exception) {
+                        val errorMsg = "Failed to save entity ${e.type}:$e"
+                        WarudoDownloader.LOGGER.error(errorMsg, ex)
+                        Minecraft.getInstance().player?.sendSystemMessage(Component.literal(errorMsg).withColor(CommonColors.SOFT_RED))
+                    }
+                }
+                chunkTag = NbtUtils.addCurrentDataVersion(CompoundTag())
+                chunkTag.put("Entities", entities)
+                chunkTag.store("Position", ChunkPos.CODEC, pos)
             }
+
+            fun reportSaveFailureIfPresent(operation: CompletableFuture<*>, pos: ChunkPos) {
+                operation.exceptionally { t ->
+                    WarudoDownloader.LOGGER.error("Failed to store entity chunk {}", pos, t)
+                    null
+                }
+            }
+            reportSaveFailureIfPresent(entitiesWorker.store(pos, chunkTag), pos)
         }
 
         private fun interfereEntity(entity: Entity): Entity =
@@ -586,11 +608,11 @@ object WD {
         fun setMapData(mapId: MapId, mapItemSavedData: MapItemSavedData) {
             var mapItemSavedData = mapItemSavedData
             if (!mapItemSavedData.locked) mapItemSavedData = mapItemSavedData.locked()
-            dimensionDataStorage.set(MapItemSavedData.type(mapId), mapItemSavedData)
+            commonDataStorage.set(MapItemSavedData.type(mapId), mapItemSavedData)
         }
 
-        fun saveMapData() {
-            dimensionDataStorage.scheduleSave()
+        fun saveDataStorage() {
+            commonDataStorage.scheduleSave()
         }
     }
 }
