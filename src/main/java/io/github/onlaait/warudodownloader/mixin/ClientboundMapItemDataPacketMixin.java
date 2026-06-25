@@ -12,8 +12,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class ClientboundMapItemDataPacketMixin {
 
     @Inject(method = "applyToMap", at = @At("RETURN"))
-    void injected(MapItemSavedData mapItemSavedData, CallbackInfo ci) {
+    void injected(MapItemSavedData map, CallbackInfo ci) {
         var instance = (ClientboundMapItemDataPacket) (Object) this;
-        WD.INSTANCE.handleMapData(instance.mapId(), mapItemSavedData);
+        WD.INSTANCE.handleMapData(instance.mapId(), map);
     }
 }

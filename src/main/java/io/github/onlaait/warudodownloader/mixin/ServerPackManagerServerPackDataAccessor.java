@@ -11,6 +11,5 @@ import java.nio.file.Path;
 public interface ServerPackManagerServerPackDataAccessor {
 
     @Accessor("path")
-    @Nullable
-    Path warudodownloader$getPath();
+    @Nullable Path warudodownloader$getPath();
 }

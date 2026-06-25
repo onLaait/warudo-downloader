@@ -3,8 +3,7 @@ package io.github.onlaait.warudodownloader
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry
 import net.minecraft.client.Minecraft
-import net.minecraft.client.gui.GuiGraphics
-import net.minecraft.resources.Identifier
+import net.minecraft.client.gui.GuiGraphicsExtractor
 import kotlin.math.max
 import kotlin.math.min
 
@@ -23,7 +22,7 @@ class Minimap {
         }
 
         init {
-            HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(WarudoDownloader.MOD_ID, "minimap"), hudLayer)
+            HudElementRegistry.addLast(WarudoDownloader.id("minimap"), hudLayer)
         }
     }
 
@@ -49,7 +48,7 @@ class Minimap {
         if (pixels.add(x to y)) changed = true
     }
 
-    fun draw(graphics: GuiGraphics) {
+    fun draw(graphics: GuiGraphicsExtractor) {
         if (playerPrevX != playerX || playerPrevY != playerY) {
             changed = true
             playerPrevX = playerX
