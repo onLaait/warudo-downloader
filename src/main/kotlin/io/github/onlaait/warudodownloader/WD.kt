@@ -29,6 +29,10 @@ import net.minecraft.server.packs.metadata.pack.PackMetadataSection
 import net.minecraft.server.packs.repository.PackRepository
 import net.minecraft.server.packs.repository.ServerPacksSource
 import net.minecraft.util.*
+import net.minecraft.world.clock.ClockState
+import net.minecraft.world.clock.PackedClockStates
+import net.minecraft.world.clock.ServerClockManager
+import net.minecraft.world.clock.WorldClocks
 import net.minecraft.world.entity.Entity
 import net.minecraft.world.entity.EntityType
 import net.minecraft.world.entity.EquipmentSlot
@@ -128,7 +132,7 @@ object WD {
 
         private companion object {
             const val DATAPACK_NAME = "warudodownloader"
-            val ENTITY_TYPE_TEST = EntitySelectorAccessor.getAnyType()
+            val ENTITY_TYPE_TEST = EntitySelectorAccessor.getANY_TYPE()
             val GSON = GsonBuilder().setPrettyPrinting().create()
 
             fun <T : Any> writeData(dir: Path, resourceKey: ResourceKey<Registry<T>>, id: ResourceKey<*>, tag: JsonElement) {
@@ -180,7 +184,7 @@ object WD {
 
             createWorld(levelStorage)
 
-            (level as ClientLevelAccessor).`warudodownloader$getAllMapData`().forEach { (mapId, data) ->
+            (level as ClientLevelAccessor).warudodownloader_getAllMapData().forEach { (mapId, data) ->
                 setMapData(mapId, data)
             }
 
@@ -190,8 +194,8 @@ object WD {
                 levelStorage.getLevelPath(LevelResource.ICON_FILE).writeBytes(icon)
             }
 
-            for ((i, data) in ((Minecraft.getInstance().downloadedPackSource as DownloadedPackSourceAccessor).`warudodownloader$getManager`() as ServerPackManagerAccessor).`warudodownloader$getPacks`().withIndex()) {
-                val path = (data as ServerPackManagerServerPackDataAccessor).`warudodownloader$getPath`() ?: continue
+            for ((i, data) in ((Minecraft.getInstance().downloadedPackSource as DownloadedPackSourceAccessor).warudodownloader_getManager() as ServerPackManagerAccessor).warudodownloader_getPacks().withIndex()) {
+                val path = (data as ServerPackManagerServerPackDataAccessor).warudodownloader_getPath() ?: continue
                 val fileName =
                     if (i == 0) {
                         "resources.zip"
@@ -345,11 +349,28 @@ object WD {
                     setGameRule(k, v)
                 }
             }
-            val gameRuleMap = (gameRules as GameRulesAccessor).`warudodownloader$getRules`()
+            val gameRuleMap = (gameRules as GameRulesAccessor).warudodownloader_getRules()
             commonDataStorage.set(GameRuleMap.TYPE, gameRuleMap)
 
             val weatherData = WeatherData(0, 0, 0, level.isRaining, level.isThundering)
             commonDataStorage.set(WeatherData.TYPE, weatherData)
+
+            level.dimensionType().defaultClock.or { level.registryAccess().get(WorldClocks.OVERWORLD) }.ifPresent { clock ->
+                val clockManager = level.clockManager()
+                val serverClockManager = ServerClockManagerAccessor.init(PackedClockStates.EMPTY)
+                val serverClocks = (serverClockManager as ServerClockManagerAccessor).warudodownloader_getClocks()
+                val clockInstance = (clockManager as ClientClockManagerAccessor).warudodownloader_getInstance(clock)
+                val clockState = (clockInstance as ClientClockManagerClockInstanceAccessor).run {
+                    ClockState(warudodownloader_getTotalTicks(), warudodownloader_getPartialTick(), 1f, false)
+                }
+                val serverClockInstance = ServerClockManagerClockInstanceAccessor.init().apply {
+                    loadFrom(clockState)
+                }
+                val overworldClock = frozen.lookupOrThrow(Registries.WORLD_CLOCK)
+                    .getOrThrow(WorldClocks.OVERWORLD)
+                serverClocks[overworldClock] = serverClockInstance
+                commonDataStorage.set(ServerClockManager.TYPE, serverClockManager)
+            }
 
             val overworldDataFolder = levelStorage.getDimensionPath(Level.OVERWORLD).resolve("data")
 //            overworldDataFolder.createDirectories()
@@ -525,7 +546,7 @@ object WD {
             val pos = chunk.pos
             val chunkEntities: List<Entity> = run {
                 val list = mutableListOf<Entity>()
-                (level as ClientLevelAccessor).`warudodownloader$getEntities`().get(ENTITY_TYPE_TEST) { e ->
+                (level as ClientLevelAccessor).warudodownloader_getEntities().get(ENTITY_TYPE_TEST) { e ->
                     val e = interfereEntity(e)
                     if (e !is Player && e.chunkPosition() == pos) list += e
                     AbortableIterationConsumer.Continuation.CONTINUE
@@ -578,11 +599,11 @@ object WD {
                     if (entity.team?.nameTagVisibility != Team.Visibility.NEVER) isCustomNameVisible = true
                     val belowName = entity.belowNameDisplay()
                     if (belowName == null) {
-                        acc.`warudodownloader$setHideDescription`(true)
+                        acc.warudodownloader_setHideDescription(true)
                     } else {
-                        acc.`warudodownloader$setDescription`(belowName)
+                        acc.warudodownloader_setDescription(belowName)
                     }
-                    acc.`warudodownloader$setProfile`(ResolvableProfile.createResolved(entity.gameProfile))
+                    acc.warudodownloader_setProfile(ResolvableProfile.createResolved(entity.gameProfile))
                     mainArm = entity.mainArm
                     EquipmentSlot.entries.forEach {
                         val item = entity.getItemBySlot(it)

@@ -5,3 +5,7 @@ accessible class net/minecraft/world/level/biome/Biome$ClimateSettings
 accessible class net/minecraft/client/resources/server/ServerPackManager$ServerPackData
 
 accessible class net/minecraft/world/timeline/Timeline$TimeMarkerInfo
+
+accessible class net/minecraft/client/ClientClockManager$ClockInstance
+
+accessible class net/minecraft/world/clock/ServerClockManager$ClockInstance

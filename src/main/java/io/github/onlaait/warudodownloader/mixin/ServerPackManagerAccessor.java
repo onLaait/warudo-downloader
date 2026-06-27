@@ -10,5 +10,5 @@ import java.util.List;
 public interface ServerPackManagerAccessor {
 
     @Accessor("packs")
-    List<ServerPackManager.ServerPackData> warudodownloader$getPacks();
+    List<ServerPackManager.ServerPackData> warudodownloader_getPacks();
 }

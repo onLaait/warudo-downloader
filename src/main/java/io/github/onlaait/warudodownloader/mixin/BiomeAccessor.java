@@ -8,5 +8,5 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface BiomeAccessor {
 
     @Accessor("climateSettings")
-    Biome.ClimateSettings warudodownloader$getClimateSettings();
+    Biome.ClimateSettings warudodownloader_getClimateSettings();
 }

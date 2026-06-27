@@ -9,5 +9,5 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface DownloadedPackSourceAccessor {
 
     @Accessor("manager")
-    ServerPackManager warudodownloader$getManager();
+    ServerPackManager warudodownloader_getManager();
 }

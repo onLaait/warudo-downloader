@@ -14,8 +14,8 @@ import java.util.Map;
 public interface ClientLevelAccessor {
 
     @Invoker("getEntities")
-    LevelEntityGetter<Entity> warudodownloader$getEntities();
+    LevelEntityGetter<Entity> warudodownloader_getEntities();
 
     @Invoker("getAllMapData")
-    Map<MapId, MapItemSavedData> warudodownloader$getAllMapData();
+    Map<MapId, MapItemSavedData> warudodownloader_getAllMapData();
 }

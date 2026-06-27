@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface EntitySelectorAccessor {
 
     @Accessor("ANY_TYPE")
-    static EntityTypeTest<Entity, ?> getAnyType() {
+    static EntityTypeTest<Entity, ?> getANY_TYPE() {
         throw new AssertionError();
     }
 }

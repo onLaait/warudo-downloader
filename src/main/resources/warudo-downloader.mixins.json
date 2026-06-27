@@ -5,6 +5,8 @@
   "client": [
     "BiomeAccessor",
     "ClientboundMapItemDataPacketMixin",
+    "ClientClockManagerAccessor",
+    "ClientClockManagerClockInstanceAccessor",
     "ClientLevelAccessor",
     "CreateWorldScreenAccessor",
     "DownloadedPackSourceAccessor",
@@ -13,10 +15,11 @@
     "IOWorkerAccessor",
     "MannequinAccessor",
     "RegionStorageUpgraderAccessor",
+    "ServerClockManagerAccessor",
+    "ServerClockManagerClockInstanceAccessor",
     "ServerPackManagerAccessor",
     "ServerPackManagerServerPackDataAccessor",
-    "TimelineAccessor",
-    "WorldBorderAccessor"
+    "TimelineAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

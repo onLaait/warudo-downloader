@@ -15,8 +15,8 @@ public class ClientTimeline {
                     i -> i.group(
                                     Codec.STRING.fieldOf("clock").forGetter(_ -> "minecraft:overworld"),
                                     ExtraCodecs.POSITIVE_INT.optionalFieldOf("period_ticks").forGetter(Timeline::periodTicks),
-                                    TimelineAccessor.getTRACKS_CODEC().optionalFieldOf("tracks", Map.of()).forGetter(t -> ((TimelineAccessor) t).warudodownloader$getTracks()),
-                                    Codec.unboundedMap(ClockTimeMarker.KEY_CODEC, Timeline.TimeMarkerInfo.CODEC).optionalFieldOf("time_markers", Map.of()).forGetter(t -> ((TimelineAccessor) t).warudodownloader$getTimeMarkers())
+                                    TimelineAccessor.getTRACKS_CODEC().optionalFieldOf("tracks", Map.of()).forGetter(t -> ((TimelineAccessor) t).warudodownloader_getTracks()),
+                                    Codec.unboundedMap(ClockTimeMarker.KEY_CODEC, Timeline.TimeMarkerInfo.CODEC).optionalFieldOf("time_markers", Map.of()).forGetter(t -> ((TimelineAccessor) t).warudodownloader_getTimeMarkers())
                             )
                             .apply(i, (_, _, _, _) -> null)
             )

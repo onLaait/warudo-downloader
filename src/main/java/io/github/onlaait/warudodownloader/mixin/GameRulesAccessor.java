@@ -9,5 +9,5 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface GameRulesAccessor {
 
     @Accessor("rules")
-    GameRuleMap warudodownloader$getRules();
+    GameRuleMap warudodownloader_getRules();
 }

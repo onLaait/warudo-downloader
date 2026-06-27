@@ -22,10 +22,10 @@ public interface TimelineAccessor {
     }
 
     @Accessor("tracks")
-    Map<EnvironmentAttribute<?>, AttributeTrack<?, ?>> warudodownloader$getTracks();
+    Map<EnvironmentAttribute<?>, AttributeTrack<?, ?>> warudodownloader_getTracks();
 
     @Accessor("timeMarkers")
-    Map<ResourceKey<ClockTimeMarker>, Timeline.TimeMarkerInfo> warudodownloader$getTimeMarkers();
+    Map<ResourceKey<ClockTimeMarker>, Timeline.TimeMarkerInfo> warudodownloader_getTimeMarkers();
 
     @Invoker("validateInternal")
     static DataResult<Timeline> validateInternal(final Timeline timeline) {

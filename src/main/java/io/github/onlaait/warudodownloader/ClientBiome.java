@@ -13,7 +13,7 @@ public class ClientBiome {
 
     public static final Codec<Biome> DIRECT_CODEC = RecordCodecBuilder.create(
             i -> i.group(
-                            Biome.ClimateSettings.CODEC.forGetter(b -> ((BiomeAccessor) (Object) b).warudodownloader$getClimateSettings()),
+                            Biome.ClimateSettings.CODEC.forGetter(b -> ((BiomeAccessor) (Object) b).warudodownloader_getClimateSettings()),
                             EnvironmentAttributeMap.CODEC_ONLY_POSITIONAL.optionalFieldOf("attributes", EnvironmentAttributeMap.EMPTY).forGetter(b -> b.getAttributes()),
                             BiomeSpecialEffects.CODEC.fieldOf("effects").forGetter(b -> b.getSpecialEffects()),
                             BiomeGenerationSettings.CODEC.forGetter(b -> BiomeGenerationSettings.EMPTY),
