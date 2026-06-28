@@ -10,11 +10,11 @@ import org.spongepowered.asm.mixin.gen.Invoker;
 public interface MannequinAccessor {
 
     @Invoker("setProfile")
-    void warudodownloader_setProfile(ResolvableProfile resolvableProfile);
+    void warudodownloader_setProfile(ResolvableProfile profile);
 
     @Invoker("setDescription")
-    void warudodownloader_setDescription(Component component);
+    void warudodownloader_setDescription(Component description);
 
     @Invoker("setHideDescription")
-    void warudodownloader_setHideDescription(boolean bl);
+    void warudodownloader_setHideDescription(boolean hideDescription);
 }

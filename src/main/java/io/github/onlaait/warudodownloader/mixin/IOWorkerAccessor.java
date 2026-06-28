@@ -11,7 +11,7 @@ import java.nio.file.Path;
 public interface IOWorkerAccessor {
 
     @Invoker("<init>")
-    static IOWorker init(RegionStorageInfo regionStorageInfo, Path path, boolean bl) {
+    static IOWorker init(RegionStorageInfo info, Path dir, boolean sync) {
         throw new AssertionError();
     }
 }

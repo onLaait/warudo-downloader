@@ -28,12 +28,12 @@ public interface TimelineAccessor {
     Map<ResourceKey<ClockTimeMarker>, Timeline.TimeMarkerInfo> warudodownloader_getTimeMarkers();
 
     @Invoker("validateInternal")
-    static DataResult<Timeline> validateInternal(final Timeline timeline) {
+    static DataResult<Timeline> validateInternal(Timeline timeline) {
         throw new AssertionError();
     }
 
     @Invoker("filterSyncableTracks")
-    static Timeline filterSyncableTracks(final Timeline timeline) {
+    static Timeline filterSyncableTracks(Timeline timeline) {
         throw new AssertionError();
     }
 }

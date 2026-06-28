@@ -13,7 +13,7 @@ import java.util.List;
 public interface RegionStorageUpgraderAccessor {
 
     @Invoker("getAllChunkPositions")
-    static List<FileToUpgrade> getAllChunkPositions(final RegionStorageInfo info, final Path regionFolder) {
+    static List<FileToUpgrade> getAllChunkPositions(RegionStorageInfo info, Path regionFolder) {
         throw new AssertionError();
     }
 }

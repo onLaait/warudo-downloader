@@ -34,7 +34,7 @@ import net.minecraft.world.clock.PackedClockStates
 import net.minecraft.world.clock.ServerClockManager
 import net.minecraft.world.clock.WorldClocks
 import net.minecraft.world.entity.Entity
-import net.minecraft.world.entity.EntityType
+import net.minecraft.world.entity.EntityTypes
 import net.minecraft.world.entity.EquipmentSlot
 import net.minecraft.world.entity.decoration.ArmorStand
 import net.minecraft.world.entity.decoration.ItemFrame
@@ -373,7 +373,6 @@ object WD {
             }
 
             val overworldDataFolder = levelStorage.getDimensionPath(Level.OVERWORLD).resolve("data")
-//            overworldDataFolder.createDirectories()
             SavedDataStorage(overworldDataFolder, mc.fixerUpper, frozen).use { overworldDataStorage ->
                 overworldDataStorage.set(WorldBorder.TYPE, level.worldBorder)
                 overworldDataStorage.saveAndJoin()
@@ -589,8 +588,9 @@ object WD {
 
         private fun interfereEntity(entity: Entity): Entity =
             when (entity) {
-                is RemotePlayer -> Mannequin(EntityType.MANNEQUIN, level).apply {
+                is RemotePlayer -> Mannequin(EntityTypes.MANNEQUIN, level).apply {
                     val acc = this as MannequinAccessor
+                    id = -1
                     setPos(entity.position())
                     xRot = entity.xRot
                     yRot = entity.yRot
