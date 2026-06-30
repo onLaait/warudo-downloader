@@ -8,6 +8,7 @@ import com.mojang.serialization.JsonOps
 import com.mojang.serialization.Lifecycle
 import io.github.onlaait.warudodownloader.mixin.*
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
+import net.minecraft.ChatFormatting
 import net.minecraft.SharedConstants
 import net.minecraft.client.Minecraft
 import net.minecraft.client.multiplayer.ClientLevel
@@ -28,7 +29,10 @@ import net.minecraft.server.packs.PackType
 import net.minecraft.server.packs.metadata.pack.PackMetadataSection
 import net.minecraft.server.packs.repository.PackRepository
 import net.minecraft.server.packs.repository.ServerPacksSource
-import net.minecraft.util.*
+import net.minecraft.util.AbortableIterationConsumer
+import net.minecraft.util.GsonHelper
+import net.minecraft.util.ProblemReporter
+import net.minecraft.util.Util
 import net.minecraft.world.clock.ClockState
 import net.minecraft.world.clock.PackedClockStates
 import net.minecraft.world.clock.ServerClockManager
@@ -569,7 +573,7 @@ object WD {
                     } catch (ex: Exception) {
                         val errorMsg = "Failed to save entity ${e.type}:$e"
                         WarudoDownloader.LOGGER.error(errorMsg, ex)
-                        Minecraft.getInstance().player?.sendSystemMessage(Component.literal(errorMsg).withColor(CommonColors.SOFT_RED))
+                        Minecraft.getInstance().player?.sendSystemMessage(Component.literal(errorMsg).withStyle(ChatFormatting.RED))
                     }
                 }
                 chunkTag = NbtUtils.addCurrentDataVersion(CompoundTag())
