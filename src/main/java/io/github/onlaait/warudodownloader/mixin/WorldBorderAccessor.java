@@ -8,5 +8,5 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 public interface WorldBorderAccessor {
 
     @Accessor("settings")
-    WorldBorder.Settings warudodownloader$getSettings();
+    WorldBorder.Settings warudodownloader_getSettings();
 }

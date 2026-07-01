@@ -4,7 +4,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElement
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry
 import net.minecraft.client.Minecraft
 import net.minecraft.client.gui.GuiGraphics
-import net.minecraft.resources.Identifier
 import kotlin.math.max
 import kotlin.math.min
 
@@ -23,7 +22,7 @@ class Minimap {
         }
 
         init {
-            HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(WarudoDownloader.MOD_ID, "minimap"), hudLayer)
+            HudElementRegistry.addLast(WarudoDownloader.id("minimap"), hudLayer)
         }
     }
 

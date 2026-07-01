@@ -23,5 +23,5 @@ This mod allows you to download worlds from any multiplayer server.
 * To stop downloading, use the command: `/downloadworld stop` or just leave the world.
 * Downloaded worlds are saved directly to your singleplayer world list (in the `.minecraft/saves` folder).
 
-## Download:
+## Download
 [Modrinth](https://modrinth.com/mod/warudo-downloader)

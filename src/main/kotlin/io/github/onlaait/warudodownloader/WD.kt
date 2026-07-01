@@ -126,7 +126,7 @@ object WD {
 
         private companion object {
             const val DATAPACK_NAME = "warudodownloader"
-            val ENTITY_TYPE_TEST = EntitySelectorAccessor.getAnyType()
+            val ENTITY_TYPE_TEST = EntitySelectorAccessor.getANY_TYPE()
             val GSON = GsonBuilder().setPrettyPrinting().create()
 
             fun <T : Any> writeData(dir: Path, resourceKey: ResourceKey<Registry<T>>, id: ResourceKey<*>, tag: JsonElement) {
@@ -184,8 +184,8 @@ object WD {
                 levelPath.resolve("icon.png").writeBytes(icon)
             }
 
-            for ((i, data) in ((Minecraft.getInstance().downloadedPackSource as DownloadedPackSourceAccessor).`warudodownloader$getManager`() as ServerPackManagerAccessor).`warudodownloader$getPacks`().withIndex()) {
-                val path = (data as ServerPackManagerServerPackDataAccessor).`warudodownloader$getPath`() ?: continue
+            for ((i, data) in ((Minecraft.getInstance().downloadedPackSource as DownloadedPackSourceAccessor).warudodownloader_getManager() as ServerPackManagerAccessor).warudodownloader_getPacks().withIndex()) {
+                val path = (data as ServerPackManagerServerPackDataAccessor).warudodownloader_getPath() ?: continue
                 val fileName =
                     if (i == 0) {
                         "resources.zip"
@@ -195,7 +195,7 @@ object WD {
                 path.copyTo(levelPath.resolve(fileName))
             }
 
-            (level as ClientLevelAccessor).`warudodownloader$getAllMapData`().forEach { (mapId, data) ->
+            (level as ClientLevelAccessor).warudodownloader_getAllMapData().forEach { (mapId, data) ->
                 setMapData(mapId, data)
             }
             saveMapData()
@@ -335,7 +335,7 @@ object WD {
                 isRaining = clientLevelData.isRaining
                 isThundering = clientLevelData.isThundering
                 isInitialized = true
-                legacyWorldBorderSettings = Optional.of((level.worldBorder as WorldBorderAccessor).`warudodownloader$getSettings`())
+                legacyWorldBorderSettings = Optional.of((level.worldBorder as WorldBorderAccessor).warudodownloader_getSettings())
             }
             levelStorageAccess.saveDataTag(frozen, worldData)
             return frozen
@@ -369,27 +369,27 @@ object WD {
             val dynamicOps = level.registryAccess().createSerializationContext(NbtOps.INSTANCE)
 
             var nonVanillaDimensionType: NonVanillaDatas.DimensionType? = null
-            WarudoDownloader.logger.info("vanillaDimensionTypes: $vanillaDimensionTypes")
+            WarudoDownloader.LOGGER.info("vanillaDimensionTypes: $vanillaDimensionTypes")
             val levelDimensionTypeHolder = level.dimensionTypeRegistration()
-            WarudoDownloader.logger.info("levelDimensionType: $levelDimensionTypeHolder")
+            WarudoDownloader.LOGGER.info("levelDimensionType: $levelDimensionTypeHolder")
             val levelDimensionTypeId = levelDimensionTypeHolder.unwrapKey().get()
             val levelDimensionType = level.dimensionType()
             val dimensionTypeCodec = ClientDimensionType.DIRECT_CODEC
-            WarudoDownloader.logger.info("vanillaDimensionTypeTags: ${vanillaDimensionTypes.associate { it.key() to dimensionTypeCodec.encodeStart(dynamicOps, it.value()).getOrThrow() }}")
+            WarudoDownloader.LOGGER.info("vanillaDimensionTypeTags: ${vanillaDimensionTypes.associate { it.key() to dimensionTypeCodec.encodeStart(dynamicOps, it.value()).getOrThrow() }}")
             val levelDimensionTypeTag = dimensionTypeCodec.encodeStart(dynamicOps, levelDimensionType).getOrThrow()
-            WarudoDownloader.logger.info("levelDimensionTypeTag: $levelDimensionTypeTag")
+            WarudoDownloader.LOGGER.info("levelDimensionTypeTag: $levelDimensionTypeTag")
             if (vanillaDimensionTypes.any { it.key() == levelDimensionTypeId && dimensionTypeCodec.encodeStart(dynamicOps, it.value()).getOrThrow() == levelDimensionTypeTag }) {
-                WarudoDownloader.logger.info("levelDimensionType is vanilla")
+                WarudoDownloader.LOGGER.info("levelDimensionType is vanilla")
             } else {
-                WarudoDownloader.logger.info("levelDimensionType is not vanilla")
+                WarudoDownloader.LOGGER.info("levelDimensionType is not vanilla")
                 val json = dimensionTypeCodec.encodeStart(JsonOps.INSTANCE, levelDimensionType).getOrThrow()
                 nonVanillaDimensionType = NonVanillaDatas.DimensionType(levelDimensionTypeId, json)
             }
 
             val nonVanillaBiomes = mutableListOf<NonVanillaDatas.Biome>()
             val levelBiomes = level.registryAccess().lookupOrThrow(Registries.BIOME).listElements().toList()
-            WarudoDownloader.logger.info("vanillaBiomes: $vanillaBiomes")
-            WarudoDownloader.logger.info("levelBiomes: $levelBiomes")
+            WarudoDownloader.LOGGER.info("vanillaBiomes: $vanillaBiomes")
+            WarudoDownloader.LOGGER.info("levelBiomes: $levelBiomes")
             val biomeCodec = Biome.NETWORK_CODEC
             val biomeWriteCodec = Biome.DIRECT_CODEC
             val vanillaBiomeTags = vanillaBiomes.associate {
@@ -401,16 +401,16 @@ object WD {
                 val tag = biomeCodec.encodeStart(dynamicOps, value).getOrThrow()
                 val vanillaTag = vanillaBiomeTags[key]
                 if (tag == vanillaTag) continue
-                WarudoDownloader.logger.info("biome not matches: $key\nvanilla: $vanillaTag\nlevel: $tag")
+                WarudoDownloader.LOGGER.info("biome not matches: $key\nvanilla: $vanillaTag\nlevel: $tag")
                 val json = biomeWriteCodec.encodeStart(JsonOps.INSTANCE, value).getOrThrow()
                 nonVanillaBiomes += NonVanillaDatas.Biome(key, json)
             }
-            WarudoDownloader.logger.info("nonVanillaBiomes: ${nonVanillaBiomes.map { it.id }}")
+            WarudoDownloader.LOGGER.info("nonVanillaBiomes: ${nonVanillaBiomes.map { it.id }}")
 
             val nonVanillaTimelines = mutableListOf<NonVanillaDatas.Timeline>()
-            WarudoDownloader.logger.info("vanillaTimelines: $vanillaTimelines")
+            WarudoDownloader.LOGGER.info("vanillaTimelines: $vanillaTimelines")
             val levelTimelines = levelDimensionType.timelines
-            WarudoDownloader.logger.info("levelTimelines: ${levelTimelines.toList()}")
+            WarudoDownloader.LOGGER.info("levelTimelines: ${levelTimelines.toList()}")
             val timelineCodec = Timeline.NETWORK_CODEC
             val timelineWriteCodec = Timeline.DIRECT_CODEC
             val vanillaTimelineTags = vanillaTimelines.associate {
@@ -422,7 +422,7 @@ object WD {
                 val tag = timelineCodec.encodeStart(dynamicOps, value).getOrThrow()
                 val vanillaTag = vanillaTimelineTags[key]
                 if (tag == vanillaTag) continue
-                WarudoDownloader.logger.info("timeline not matches: $key\nvanilla: $vanillaTag\nlevel: $tag")
+                WarudoDownloader.LOGGER.info("timeline not matches: $key\nvanilla: $vanillaTag\nlevel: $tag")
                 val json = timelineWriteCodec.encodeStart(JsonOps.INSTANCE, value).getOrThrow()
                 nonVanillaTimelines += NonVanillaDatas.Timeline(key, json)
             }
@@ -459,7 +459,7 @@ object WD {
 
             val player = mc.player
             if (player == null) {
-                WarudoDownloader.logger.info("Stopped downloading the world")
+                WarudoDownloader.LOGGER.info("Stopped downloading the world")
             } else {
                 player.displayClientMessage(
                     Component.empty()
@@ -503,7 +503,7 @@ object WD {
             val completableFuture = CompletableFuture.supplyAsync(serializableChunkData::write, Util.backgroundExecutor())
             chunkWorker.store(chunkPos, completableFuture::join).handle { _, throwable ->
                 if (throwable != null) {
-                    WarudoDownloader.logger.error("Failed to save chunk {},{}", chunkPos.x, chunkPos.z, throwable)
+                    WarudoDownloader.LOGGER.error("Failed to save chunk {},{}", chunkPos.x, chunkPos.z, throwable)
                 }
                 null
             }
@@ -514,8 +514,8 @@ object WD {
             val chunkPos = chunkAccess.pos
             val listTag = ListTag()
             val compoundTag: CompoundTag
-            ProblemReporter.ScopedCollector(ChunkAccess.problemPath(chunkPos), WarudoDownloader.logger).use { scopedCollector ->
-                (level as ClientLevelAccessor).`warudodownloader$getEntities`().get(ENTITY_TYPE_TEST) { entity ->
+            ProblemReporter.ScopedCollector(ChunkAccess.problemPath(chunkPos), WarudoDownloader.LOGGER).use { scopedCollector ->
+                (level as ClientLevelAccessor).warudodownloader_getEntities().get(ENTITY_TYPE_TEST) { entity ->
                     try {
                         val entity = interfereEntity(entity)
                         if (entity !is Player && entity.chunkPosition() == chunkPos) {
@@ -528,7 +528,7 @@ object WD {
                         }
                     } catch (e: Exception) {
                         val errorMsg = "Failed to save entity ${entity.type}:$entity"
-                        WarudoDownloader.logger.error(errorMsg, e)
+                        WarudoDownloader.LOGGER.error(errorMsg, e)
                         Minecraft.getInstance().player?.displayClientMessage(Component.literal(errorMsg).withColor(CommonColors.SOFT_RED), false)
                     }
                     AbortableIterationConsumer.Continuation.CONTINUE
@@ -539,7 +539,7 @@ object WD {
             }
             val completableFuture = entitiesWorker.store(chunkPos, compoundTag)
             completableFuture.exceptionally { throwable ->
-                WarudoDownloader.logger.error("Failed to store entity chunk {}", chunkPos, throwable)
+                WarudoDownloader.LOGGER.error("Failed to store entity chunk {}", chunkPos, throwable)
                 null
             }
         }
@@ -556,11 +556,11 @@ object WD {
                     if (entity.team?.nameTagVisibility != Team.Visibility.NEVER) isCustomNameVisible = true
                     val belowName = entity.belowNameDisplay()
                     if (belowName == null) {
-                        acc.`warudodownloader$setHideDescription`(true)
+                        acc.warudodownloader_setHideDescription(true)
                     } else {
-                        acc.`warudodownloader$setDescription`(belowName)
+                        acc.warudodownloader_setDescription(belowName)
                     }
-                    acc.`warudodownloader$setProfile`(ResolvableProfile.createResolved(entity.gameProfile))
+                    acc.warudodownloader_setProfile(ResolvableProfile.createResolved(entity.gameProfile))
                     mainArm = entity.mainArm
                     EquipmentSlot.entries.forEach {
                         val item = entity.getItemBySlot(it)
