@@ -1,0 +1,22 @@
+{
+  "required": true,
+  "package": "io.github.onlaait.warudodownloader.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ClientboundMapItemDataPacketMixin",
+    "ClientLevelAccessor",
+    "CreateWorldScreenAccessor",
+    "DownloadedPackSourceAccessor",
+    "IOWorkerAccessor",
+    "ServerPackManagerAccessor",
+    "ServerPackManagerServerPackDataAccessor",
+    "WorldBorderSettingsAccessor",
+    "WorldUpgraderAbstractUpgraderAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}
