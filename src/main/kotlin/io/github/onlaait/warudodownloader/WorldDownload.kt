@@ -6,6 +6,7 @@ import com.google.gson.JsonObject
 import com.google.gson.stream.JsonWriter
 import com.mojang.serialization.JsonOps
 import com.mojang.serialization.Lifecycle
+import io.github.onlaait.warudodownloader.gui.Minimap
 import io.github.onlaait.warudodownloader.mixin.*
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
 import net.minecraft.ChatFormatting
@@ -31,7 +32,6 @@ import net.minecraft.server.packs.PackType
 import net.minecraft.server.packs.metadata.pack.PackMetadataSection
 import net.minecraft.server.packs.repository.PackRepository
 import net.minecraft.server.packs.repository.ServerPacksSource
-import net.minecraft.util.AbortableIterationConsumer
 import net.minecraft.util.GsonHelper
 import net.minecraft.util.ProblemReporter
 import net.minecraft.world.Difficulty
@@ -68,9 +68,9 @@ import java.util.*
 import java.util.concurrent.CompletableFuture
 import kotlin.io.path.*
 
-object WD {
+object WorldDownload {
 
-    private var current: WDC? = null
+    private var current: Session? = null
 
     init {
         ClientTickEvents.END_WORLD_TICK.register { currentLevel ->
@@ -81,9 +81,9 @@ object WD {
         }
     }
 
-    fun start(range: Int) {
+    fun start(distance: Int) {
         require(!isStarted())
-        current = WDC(range)
+        current = Session(distance)
     }
 
     fun isStarted(): Boolean = current != null
@@ -125,11 +125,10 @@ object WD {
         current = null
     }
 
-    private class WDC(val range: Int) {
+    private class Session(val distance: Int) {
 
         private companion object {
             const val DATAPACK_NAME = "warudodownloader"
-            val ENTITY_TYPE_TEST = EntitySelectorAccessor.getANY_TYPE()
             val GSON = GsonBuilder().setPrettyPrinting().create()
 
             fun <T : Any> writeData(dir: Path, resourceKey: ResourceKey<Registry<T>>, id: ResourceKey<*>, tag: JsonElement) {
@@ -165,15 +164,15 @@ object WD {
         var currentChunks = ArrayList<Long>(nMaxChunkInRange)
         val minimap = Minimap()
         val nMaxChunkInRange: Int
-            get() = (range * 2 + 1).let { it * it }
+            get() = (distance * 2 + 1).let { it * it }
 
         init {
             val player = mc.player!!
             val levelPath = mc.levelSource.getLevelPath(worldPathStr)
             val regionPath = levelPath.resolve("region")
-            val regionStorageInfo = RegionStorageInfo("WD", Level.OVERWORLD, "chunk")
+            val regionStorageInfo = RegionStorageInfo("WorldDownload", Level.OVERWORLD, "chunk")
             chunkWorker = IOWorkerAccessor.init(regionStorageInfo, regionPath, false)
-            entitiesWorker = IOWorkerAccessor.init(RegionStorageInfo("WD", Level.OVERWORLD, "entities"), levelPath.resolve("entities"), false)
+            entitiesWorker = IOWorkerAccessor.init(RegionStorageInfo("WorldDownload", Level.OVERWORLD, "entities"), levelPath.resolve("entities"), false)
 
             val levelStorageAccess = mc.levelSource.createAccess(worldPathStr)
 
@@ -213,11 +212,7 @@ object WD {
             }
             minimap.init()
 
-            player.displayClientMessage(
-                Component.empty()
-                    .append("Started downloading the world. (range: $range)"),
-                false
-            )
+            player.displayClientMessage(Component.translatable("warudo-downloader.started", distance), false)
         }
 
         fun createWorld(levelStorageAccess: LevelStorageSource.LevelStorageAccess): RegistryAccess.Frozen {
@@ -433,19 +428,15 @@ object WD {
             if (player == null) {
                 WarudoDownloader.LOGGER.info("Stopped downloading the world")
             } else {
-                player.displayClientMessage(
-                    Component.empty()
-                        .append("Stopped downloading the world."),
-                    false
-                )
+                player.displayClientMessage(Component.translatable("warudo-downloader.stopped"), false)
             }
         }
 
         fun saveAllInRange(chunkPos: ChunkPos) {
             val x = chunkPos.x
             val z = chunkPos.z
-            for (x in (x - range)..(x + range)) {
-                for (z in (z - range)..(z + range)) {
+            for (x in (x - distance)..(x + distance)) {
+                for (z in (z - distance)..(z + distance)) {
                     val chunk = level.chunkSource.getChunk(x, z, false) ?: continue
                     val l = chunk.pos.toLong()
                     currentChunks += l
@@ -468,8 +459,8 @@ object WD {
             }
         }
 
-        // FROM net.minecraft.server.level.ChunkMap.save
         fun saveChunk(chunkAccess: ChunkAccess) {
+            // FROM net.minecraft.server.level.ChunkMap.save
             val chunkPos = chunkAccess.pos
             val serializableChunkData = ClientSerializableChunkData.copyOf(level, chunkAccess)
             val completableFuture = CompletableFuture.supplyAsync(serializableChunkData::write, Util.backgroundExecutor())
@@ -481,20 +472,19 @@ object WD {
             }
         }
 
-        // FROM net.minecraft.world.level.chunk.storage.EntityStorage.storeEntities
         fun saveEntities(chunkAccess: ChunkAccess) {
             val chunkPos = chunkAccess.pos
             val chunkEntities: List<Entity> = run {
                 val list = mutableListOf<Entity>()
-                (level as ClientLevelAccessor).warudodownloader_getEntities().get(ENTITY_TYPE_TEST) { e ->
+                level.entitiesForRendering().forEach { e ->
                     val e = injectEntity(e)
                     if (e !is Player && e.chunkPosition() == chunkPos) list += e
-                    AbortableIterationConsumer.Continuation.CONTINUE
                 }
                 list
             }
             if (chunkEntities.isEmpty()) return
 
+            // FROM net.minecraft.world.level.chunk.storage.EntityStorage.storeEntities
             val compoundTag: CompoundTag
             ProblemReporter.ScopedCollector(ChunkAccess.problemPath(chunkPos), WarudoDownloader.LOGGER).use { scopedCollector ->
                 val listTag = ListTag()

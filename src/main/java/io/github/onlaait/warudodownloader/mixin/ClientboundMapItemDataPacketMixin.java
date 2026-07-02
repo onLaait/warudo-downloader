@@ -1,6 +1,6 @@
 package io.github.onlaait.warudodownloader.mixin;
 
-import io.github.onlaait.warudodownloader.WD;
+import io.github.onlaait.warudodownloader.WorldDownload;
 import net.minecraft.network.protocol.game.ClientboundMapItemDataPacket;
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,6 +14,6 @@ public class ClientboundMapItemDataPacketMixin {
     @Inject(method = "applyToMap", at = @At("RETURN"))
     void injected(MapItemSavedData mapItemSavedData, CallbackInfo ci) {
         var instance = (ClientboundMapItemDataPacket) (Object) this;
-        WD.INSTANCE.handleMapData(instance.mapId(), mapItemSavedData);
+        WorldDownload.INSTANCE.handleMapData(instance.mapId(), mapItemSavedData);
     }
 }

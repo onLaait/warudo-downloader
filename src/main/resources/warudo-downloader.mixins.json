@@ -7,7 +7,6 @@
     "ClientLevelAccessor",
     "CreateWorldScreenAccessor",
     "DownloadedPackSourceAccessor",
-    "EntitySelectorAccessor",
     "IOWorkerAccessor",
     "MannequinAccessor",
     "ServerPackManagerAccessor",
