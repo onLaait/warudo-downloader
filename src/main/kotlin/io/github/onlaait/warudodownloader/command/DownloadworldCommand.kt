@@ -2,7 +2,7 @@ package io.github.onlaait.warudodownloader.command
 
 import com.mojang.brigadier.CommandDispatcher
 import com.mojang.brigadier.arguments.IntegerArgumentType
-import io.github.onlaait.warudodownloader.WD
+import io.github.onlaait.warudodownloader.WorldDownload
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands.argument
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands.literal
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource
@@ -10,11 +10,15 @@ import net.minecraft.network.chat.Component
 
 object DownloadworldCommand {
 
+    private val IDLE = Component.translatable("warudo-downloader.idle")
+    private val NOT_RUNNING = Component.translatable("warudo-downloader.not_running")
+    private val ALREADY_RUNNING = Component.translatable("warudo-downloader.already_running")
+
     fun register(dispatcher: CommandDispatcher<FabricClientCommandSource>) {
         dispatcher.register(
             literal("downloadworld")
                 .executes { ctx ->
-                    ctx.source.sendFeedback(Component.literal("Warudo Downloader is here."))
+                    ctx.source.sendFeedback(IDLE)
                     return@executes 0
                 }
                 .then(
@@ -34,11 +38,11 @@ object DownloadworldCommand {
                 .then(
                     literal("stop")
                         .executes { ctx ->
-                            if (!WD.isStarted()) {
-                                ctx.source.sendError(Component.literal("Not downloading the world."))
+                            if (!WorldDownload.isStarted()) {
+                                ctx.source.sendError(NOT_RUNNING)
                                 return@executes 0
                             }
-                            WD.stop()
+                            WorldDownload.stop()
                             return@executes 1
                         }
                 )
@@ -46,11 +50,11 @@ object DownloadworldCommand {
     }
 
     private fun start(source: FabricClientCommandSource, distance: Int): Int {
-        if (WD.isStarted()) {
-            source.sendError(Component.literal("Already downloading the world."))
+        if (WorldDownload.isStarted()) {
+            source.sendError(ALREADY_RUNNING)
             return 0
         }
-        WD.start(distance)
+        WorldDownload.start(distance)
         return 1
     }
 }

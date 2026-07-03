@@ -10,7 +10,7 @@ version = providers.gradleProperty("mod_version").get()
 group = providers.gradleProperty("maven_group").get()
 
 loom {
-	accessWidenerPath = file("src/main/resources/warudo-downloader.accesswidener")
+	accessWidenerPath = file("src/main/resources/warudo-downloader.classtweaker")
 }
 
 repositories {
