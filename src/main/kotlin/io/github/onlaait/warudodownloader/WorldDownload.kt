@@ -505,8 +505,11 @@ object WorldDownload {
                 compoundTag = NbtUtils.addCurrentDataVersion(CompoundTag())
                 compoundTag.put("Entities", listTag)
                 compoundTag.store("Position", ChunkPos.CODEC, chunkPos)
+                reportSaveFailureIfPresent(entitiesWorker.store(chunkPos, compoundTag), chunkPos)
             }
-            val completableFuture = entitiesWorker.store(chunkPos, compoundTag)
+        }
+
+        private fun reportSaveFailureIfPresent(completableFuture: CompletableFuture<*>, chunkPos: ChunkPos?) {
             completableFuture.exceptionally { throwable ->
                 WarudoDownloader.LOGGER.error("Failed to store entity chunk {}", chunkPos, throwable)
                 null

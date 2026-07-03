@@ -37,7 +37,7 @@ class WorldDownloadStartScreen : Screen(TITLE) {
             }
 
             override fun applyValue() {
-                distance = Mth.floor(Mth.clampedLerp(value, MIN_DISTANCE, MAX_DISTANCE))
+                distance = Mth.floor(Mth.clampedLerp(MIN_DISTANCE, MAX_DISTANCE, value))
             }
         }
         addRenderableWidget(distanceSlider)
