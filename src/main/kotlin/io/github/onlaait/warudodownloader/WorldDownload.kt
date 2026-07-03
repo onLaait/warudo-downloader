@@ -6,8 +6,10 @@ import com.google.gson.JsonObject
 import com.google.gson.stream.JsonWriter
 import com.mojang.serialization.JsonOps
 import com.mojang.serialization.Lifecycle
+import io.github.onlaait.warudodownloader.gui.Minimap
 import io.github.onlaait.warudodownloader.mixin.*
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
+import net.minecraft.ChatFormatting
 import net.minecraft.SharedConstants
 import net.minecraft.client.Minecraft
 import net.minecraft.client.multiplayer.ClientLevel
@@ -65,9 +67,9 @@ import java.util.*
 import java.util.concurrent.CompletableFuture
 import kotlin.io.path.*
 
-object WD {
+object WorldDownload {
 
-    private var current: WDC? = null
+    private var current: Session? = null
 
     init {
         ClientTickEvents.END_WORLD_TICK.register { currentLevel ->
@@ -78,9 +80,9 @@ object WD {
         }
     }
 
-    fun start(range: Int) {
+    fun start(distance: Int) {
         require(!isStarted())
-        current = WDC(range)
+        current = Session(distance)
     }
 
     fun isStarted(): Boolean = current != null
@@ -122,11 +124,10 @@ object WD {
         current = null
     }
 
-    private class WDC(val range: Int) {
+    private class Session(val distance: Int) {
 
         private companion object {
             const val DATAPACK_NAME = "warudodownloader"
-            val ENTITY_TYPE_TEST = EntitySelectorAccessor.getANY_TYPE()
             val GSON = GsonBuilder().setPrettyPrinting().create()
 
             fun <T : Any> writeData(dir: Path, resourceKey: ResourceKey<Registry<T>>, id: ResourceKey<*>, tag: JsonElement) {
@@ -161,15 +162,15 @@ object WD {
         var currentChunks = ArrayList<Long>(nMaxChunkInRange)
         val minimap = Minimap()
         val nMaxChunkInRange: Int
-            get() = (range * 2 + 1).let { it * it }
+            get() = (distance * 2 + 1).let { it * it }
 
         init {
             val player = mc.player!!
             val levelPath = mc.levelSource.getLevelPath(worldPathStr)
             val regionPath = levelPath.resolve("region")
-            val regionStorageInfo = RegionStorageInfo("WD", Level.OVERWORLD, "chunk")
+            val regionStorageInfo = RegionStorageInfo("WorldDownload", Level.OVERWORLD, "chunk")
             chunkWorker = IOWorkerAccessor.init(regionStorageInfo, regionPath, false)
-            entitiesWorker = IOWorkerAccessor.init(RegionStorageInfo("WD", Level.OVERWORLD, "entities"), levelPath.resolve("entities"), false)
+            entitiesWorker = IOWorkerAccessor.init(RegionStorageInfo("WorldDownload", Level.OVERWORLD, "entities"), levelPath.resolve("entities"), false)
 
             val levelStorageAccess = mc.levelSource.createAccess(worldPathStr)
 
@@ -208,11 +209,7 @@ object WD {
             }
             minimap.init()
 
-            player.displayClientMessage(
-                Component.empty()
-                    .append("Started downloading the world. (range: $range)"),
-                false
-            )
+            player.displayClientMessage(Component.translatable("warudo-downloader.started", distance), false)
         }
 
         fun createWorld(levelStorageAccess: LevelStorageSource.LevelStorageAccess): RegistryAccess.Frozen {
@@ -228,10 +225,11 @@ object WD {
                 @OptIn(ExperimentalPathApi::class)
                 datapackDir.deleteRecursively()
                 datapackDir.createParentDirectories()
+                val component = Component.literal("Downloaded data")
 
                 // FROM net.minecraft.server.commands.DataPackCommand.createPack
                 val path2 = datapackDir
-                val packMetadataSection = PackMetadataSection(Component.literal("Downloaded data"), SharedConstants.getCurrentVersion().packVersion(PackType.SERVER_DATA).minorRange())
+                val packMetadataSection = PackMetadataSection(component, SharedConstants.getCurrentVersion().packVersion(PackType.SERVER_DATA).minorRange())
                 val dataResult = PackMetadataSection.SERVER_TYPE.codec().encodeStart(JsonOps.INSTANCE, packMetadataSection)
                 val jsonObject = JsonObject()
                 jsonObject.add(PackMetadataSection.SERVER_TYPE.name(), dataResult.getOrThrow())
@@ -262,18 +260,14 @@ object WD {
 
             val gameRules = GameRules(worldDataConfiguration.enabledFeatures).apply {
                 arrayOf(
-                    GameRules.KEEP_INVENTORY to true,
                     GameRules.RESPAWN_RADIUS to 0,
-                    GameRules.RAIDS to false,
                     GameRules.MAX_ENTITY_CRAMMING to 0,
                     GameRules.MOB_GRIEFING to false,
                     GameRules.SPAWN_MOBS to false,
                     GameRules.ADVANCE_TIME to false,
                     GameRules.FIRE_SPREAD_RADIUS_AROUND_PLAYER to 0,
-                    GameRules.SPREAD_VINES to false,
                     GameRules.ADVANCE_WEATHER to false,
                     GameRules.RANDOM_TICK_SPEED to 0,
-                    GameRules.MAX_SNOW_ACCUMULATION_HEIGHT to 0,
                 ).forEach { (k, v) ->
                     setGameRule(k, v)
                 }
@@ -448,7 +442,7 @@ object WD {
                 val data: JsonElement
             )
 
-            fun isEmpty(): Boolean = dimensionType == null && biomes.isEmpty()
+            fun isEmpty(): Boolean = dimensionType == null && biomes.isEmpty() && timelines.isEmpty()
         }
 
         fun stop() {
@@ -461,19 +455,15 @@ object WD {
             if (player == null) {
                 WarudoDownloader.LOGGER.info("Stopped downloading the world")
             } else {
-                player.displayClientMessage(
-                    Component.empty()
-                        .append("Stopped downloading the world."),
-                    false
-                )
+                player.displayClientMessage(Component.translatable("warudo-downloader.stopped"), false)
             }
         }
 
         fun saveAllInRange(chunkPos: ChunkPos) {
             val x = chunkPos.x
             val z = chunkPos.z
-            for (x in (x - range)..(x + range)) {
-                for (z in (z - range)..(z + range)) {
+            for (x in (x - distance)..(x + distance)) {
+                for (z in (z - distance)..(z + distance)) {
                     val chunk = level.chunkSource.getChunk(x, z, false) ?: continue
                     val l = chunk.pos.toLong()
                     currentChunks += l
@@ -496,8 +486,8 @@ object WD {
             }
         }
 
-        // FROM net.minecraft.server.level.ChunkMap.save
         fun saveChunk(chunkAccess: ChunkAccess) {
+            // FROM net.minecraft.server.level.ChunkMap.save
             val chunkPos = chunkAccess.pos
             val serializableChunkData = ClientSerializableChunkData.copyOf(level, chunkAccess)
             val completableFuture = CompletableFuture.supplyAsync(serializableChunkData::write, Util.backgroundExecutor())
@@ -509,42 +499,51 @@ object WD {
             }
         }
 
-        // FROM net.minecraft.world.level.chunk.storage.EntityStorage.storeEntities
         fun saveEntities(chunkAccess: ChunkAccess) {
             val chunkPos = chunkAccess.pos
-            val listTag = ListTag()
+            val chunkEntities: List<Entity> = run {
+                val list = mutableListOf<Entity>()
+                level.entitiesForRendering().forEach { e ->
+                    val e = injectEntity(e)
+                    if (e !is Player && e.chunkPosition() == chunkPos) list += e
+                }
+                list
+            }
+            if (chunkEntities.isEmpty()) return
+
+            // FROM net.minecraft.world.level.chunk.storage.EntityStorage.storeEntities
             val compoundTag: CompoundTag
             ProblemReporter.ScopedCollector(ChunkAccess.problemPath(chunkPos), WarudoDownloader.LOGGER).use { scopedCollector ->
-                (level as ClientLevelAccessor).warudodownloader_getEntities().get(ENTITY_TYPE_TEST) { entity ->
+                val listTag = ListTag()
+                chunkEntities.forEach { entity ->
                     try {
-                        val entity = interfereEntity(entity)
-                        if (entity !is Player && entity.chunkPosition() == chunkPos) {
-                            val tagValueOutput = TagValueOutput.createWithContext(scopedCollector.forChild(entity.problemPath()), entity.registryAccess())
-                            if (entity.save(tagValueOutput)) {
-                                interfereSaveData(entity, tagValueOutput)
-                                val compoundTagx = tagValueOutput.buildResult()
-                                listTag.add(compoundTagx)
-                            }
+                        val tagValueOutput = TagValueOutput.createWithContext(scopedCollector.forChild(entity.problemPath()), entity.registryAccess())
+                        if (entity.save(tagValueOutput)) {
+                            injectSaveData(entity, tagValueOutput)
+                            val compoundTagx = tagValueOutput.buildResult()
+                            listTag.add(compoundTagx)
                         }
                     } catch (e: Exception) {
                         val errorMsg = "Failed to save entity ${entity.type}:$entity"
                         WarudoDownloader.LOGGER.error(errorMsg, e)
-                        Minecraft.getInstance().player?.displayClientMessage(Component.literal(errorMsg).withColor(CommonColors.SOFT_RED), false)
+                        Minecraft.getInstance().player?.displayClientMessage(Component.literal(errorMsg).withStyle(ChatFormatting.RED), false)
                     }
-                    AbortableIterationConsumer.Continuation.CONTINUE
                 }
                 compoundTag = NbtUtils.addCurrentDataVersion(CompoundTag())
                 compoundTag.put("Entities", listTag)
                 compoundTag.store("Position", ChunkPos.CODEC, chunkPos)
+                reportSaveFailureIfPresent(entitiesWorker.store(chunkPos, compoundTag), chunkPos)
             }
-            val completableFuture = entitiesWorker.store(chunkPos, compoundTag)
+        }
+
+        private fun reportSaveFailureIfPresent(completableFuture: CompletableFuture<*>, chunkPos: ChunkPos) {
             completableFuture.exceptionally { throwable ->
                 WarudoDownloader.LOGGER.error("Failed to store entity chunk {}", chunkPos, throwable)
                 null
             }
         }
 
-        private fun interfereEntity(entity: Entity): Entity =
+        private fun injectEntity(entity: Entity): Entity =
             when (entity) {
                 is RemotePlayer -> Mannequin(EntityType.MANNEQUIN, level).apply {
                     val acc = this as MannequinAccessor
@@ -572,7 +571,7 @@ object WD {
                 else -> entity
             }
 
-        private fun interfereSaveData(entity: Entity, valueOutput: ValueOutput) {
+        private fun injectSaveData(entity: Entity, valueOutput: ValueOutput) {
             when (entity) {
                 is ItemFrame -> {
                     valueOutput.putBoolean("Fixed", true)

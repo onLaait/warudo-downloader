@@ -8,7 +8,7 @@
 		"Laait"
 	],
 	"contact": {
-		"homepage": "https://modrinth.com/mod/warudo-downloader",
+		"homepage": "https://github.com/onLaait/warudo-downloader",
 		"sources": "https://github.com/onLaait/warudo-downloader",
 		"issues": "https://github.com/onLaait/warudo-downloader/issues"
 	},
@@ -36,5 +36,5 @@
 		"fabric-api": "*",
 		"fabric-language-kotlin": "*"
 	},
-	"accessWidener": "warudo-downloader.accesswidener"
+	"accessWidener": "warudo-downloader.classtweaker"
 }
