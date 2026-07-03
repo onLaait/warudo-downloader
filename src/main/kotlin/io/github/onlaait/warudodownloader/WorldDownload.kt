@@ -472,7 +472,6 @@ object WorldDownload {
             if (chunkEntities.isEmpty()) return
 
             // FROM net.minecraft.world.level.chunk.storage.EntityStorage.storeEntities
-            val compoundTag: CompoundTag
             ProblemReporter.ScopedCollector(ChunkAccess.problemPath(chunkPos), WarudoDownloader.LOGGER).use { scopedCollector ->
                 val listTag = ListTag()
                 chunkEntities.forEach { entity ->
@@ -489,11 +488,14 @@ object WorldDownload {
                         Minecraft.getInstance().player?.displayClientMessage(Component.literal(errorMsg).withStyle(ChatFormatting.RED), false)
                     }
                 }
-                compoundTag = NbtUtils.addCurrentDataVersion(CompoundTag())
+                val compoundTag = NbtUtils.addCurrentDataVersion(CompoundTag())
                 compoundTag.put("Entities", listTag)
                 compoundTag.store("Position", ChunkPos.CODEC, chunkPos)
+                reportSaveFailureIfPresent(entitiesWorker.store(chunkPos, compoundTag), chunkPos)
             }
-            val completableFuture = entitiesWorker.store(chunkPos, compoundTag)
+        }
+
+        private fun reportSaveFailureIfPresent(completableFuture: CompletableFuture<*>, chunkPos: ChunkPos) {
             completableFuture.exceptionally { throwable ->
                 WarudoDownloader.LOGGER.error("Failed to store entity chunk {}", chunkPos, throwable)
                 null
