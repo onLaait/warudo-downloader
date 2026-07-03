@@ -10,7 +10,6 @@
     "ClientLevelAccessor",
     "CreateWorldScreenAccessor",
     "DownloadedPackSourceAccessor",
-    "EntitySelectorAccessor",
     "GameRulesAccessor",
     "IOWorkerAccessor",
     "MannequinAccessor",
