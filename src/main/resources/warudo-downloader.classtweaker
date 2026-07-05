@@ -1,0 +1,5 @@
+classTweaker v1 named
+
+accessible class net/minecraft/world/level/biome/Biome$ClimateSettings
+
+accessible class net/minecraft/client/resources/server/ServerPackManager$ServerPackData

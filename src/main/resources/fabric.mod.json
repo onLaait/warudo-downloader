@@ -1,0 +1,40 @@
+{
+	"schemaVersion": 1,
+	"id": "warudo-downloader",
+	"version": "${version}",
+	"name": "Warudo Downloader",
+	"description": "A Minecraft mod.",
+	"authors": [
+		"Laait"
+	],
+	"contact": {
+		"homepage": "https://github.com/onLaait/warudo-downloader",
+		"sources": "https://github.com/onLaait/warudo-downloader",
+		"issues": "https://github.com/onLaait/warudo-downloader/issues"
+	},
+	"license": "LGPL-3.0",
+	"icon": "assets/warudo-downloader/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			{
+				"value": "io.github.onlaait.warudodownloader.WarudoDownloader",
+				"adapter": "kotlin"
+			}
+		]
+	},
+	"mixins": [
+		{
+			"config": "warudo-downloader.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": "*",
+		"minecraft": ">=1.20.3",
+		"java": ">=17",
+		"fabric-api": "*",
+		"fabric-language-kotlin": "*"
+	},
+	"accessWidener": "warudo-downloader.classtweaker"
+}
