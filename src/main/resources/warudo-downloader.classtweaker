@@ -1,0 +1,7 @@
+classTweaker v1 named
+
+accessible class net/minecraft/util/worldupdate/WorldUpgrader$AbstractUpgrader
+
+accessible class net/minecraft/util/worldupdate/WorldUpgrader$FileToUpgrade
+
+accessible class net/minecraft/client/resources/server/ServerPackManager$ServerPackData
