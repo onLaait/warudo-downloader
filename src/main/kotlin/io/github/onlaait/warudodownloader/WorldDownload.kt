@@ -178,12 +178,10 @@ object WorldDownload {
                 levelPath.resolve("icon.png").writeBytes(icon)
             }
 
-            val resourcePath = levelPath.resolve("resources.zip")
-            resourcePath.deleteIfExists()
             (mc.downloadedPackSource as DownloadedPackSourceAccessor).warudodownloader_getServerPack()?.let { pack ->
                 val supplier = (pack as PackAccessor).warudodownloader_getResources() as FilePackResources.FileResourcesSupplier
                 val file = (supplier as FilePackResourcesFileResourcesSupplierAccessor).warudodownloader_getContent()
-                file.copyTo(resourcePath.toFile())
+                file.copyTo(levelPath.resolve("resources.zip").toFile(), overwrite = true)
             }
 
             (level as ClientLevelAccessor).warudodownloader_getAllMapData().forEach { (mapId, data) ->
