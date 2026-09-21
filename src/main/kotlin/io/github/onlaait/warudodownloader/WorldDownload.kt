@@ -179,6 +179,10 @@ object WorldDownload {
                 levelPath.resolve("icon.png").writeBytes(icon)
             }
 
+            levelPath.useDirectoryEntries { l ->
+                l.filter { it.isRegularFile() && it.name.startsWith("resources") && it.extension == "zip" }
+                    .forEach { it.deleteExisting() }
+            }
             for ((i, data) in ((mc.downloadedPackSource as DownloadedPackSourceAccessor).warudodownloader_getManager() as ServerPackManagerAccessor).warudodownloader_getPacks().withIndex()) {
                 val path = (data as ServerPackManagerServerPackDataAccessor).warudodownloader_getPath() ?: continue
                 val fileName =
