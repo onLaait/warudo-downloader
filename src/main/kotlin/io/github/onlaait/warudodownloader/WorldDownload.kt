@@ -54,7 +54,6 @@ import net.minecraft.world.level.saveddata.SavedData
 import net.minecraft.world.level.saveddata.maps.MapId
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData
 import net.minecraft.world.level.storage.*
-import java.nio.file.Files
 import java.nio.file.Path
 import java.util.*
 import java.util.concurrent.CompletableFuture
@@ -65,8 +64,8 @@ object WorldDownload {
     private var current: Session? = null
 
     init {
-        ClientTickEvents.END_WORLD_TICK.register { currentLevel ->
-            onWorldTick(currentLevel)
+        ClientTickEvents.END_WORLD_TICK.register { level ->
+            onWorldTick(level)
         }
         ClientTickEvents.END_CLIENT_TICK.register { mc ->
             onClientTick(mc)
@@ -80,9 +79,9 @@ object WorldDownload {
 
     fun isStarted(): Boolean = current != null
 
-    private fun onWorldTick(currentLevel: ClientLevel) {
+    private fun onWorldTick(level: ClientLevel) {
         val wd = current ?: return
-        if (currentLevel != wd.level) {
+        if (level != wd.level) {
             stop()
             return
         }
@@ -180,7 +179,11 @@ object WorldDownload {
                 levelPath.resolve("icon.png").writeBytes(icon)
             }
 
-            for ((i, data) in ((Minecraft.getInstance().downloadedPackSource as DownloadedPackSourceAccessor).warudodownloader_getManager() as ServerPackManagerAccessor).warudodownloader_getPacks().withIndex()) {
+            levelPath.useDirectoryEntries { l ->
+                l.filter { it.isRegularFile() && it.name.startsWith("resources") && it.extension == "zip" }
+                    .forEach { it.deleteExisting() }
+            }
+            for ((i, data) in ((mc.downloadedPackSource as DownloadedPackSourceAccessor).warudodownloader_getManager() as ServerPackManagerAccessor).warudodownloader_getPacks().withIndex()) {
                 val path = (data as ServerPackManagerServerPackDataAccessor).warudodownloader_getPath() ?: continue
                 val fileName =
                     if (i == 0) {
@@ -219,7 +222,7 @@ object WorldDownload {
                 val datapackDir = levelStorageAccess.getLevelPath(LevelResource.DATAPACK_DIR).resolve(DATAPACK_NAME)
                 @OptIn(ExperimentalPathApi::class)
                 datapackDir.deleteRecursively()
-                datapackDir.createParentDirectories()
+                datapackDir.createDirectories()
                 val component = Component.literal("Downloaded data")
 
                 // FROM net.minecraft.server.commands.DataPackCommand.createPack
@@ -230,15 +233,13 @@ object WorldDownload {
                 val dataResult = PackMetadataSection.CODEC.encodeStart(JsonOps.INSTANCE, packMetadataSection)
                 val jsonObject = JsonObject()
                 jsonObject.add(PackMetadataSection.TYPE.name(), dataResult.getOrThrow())
-                Files.createDirectory(path2)
-                Files.createDirectory(path2.resolve(PackType.SERVER_DATA.directory))
                 JsonWriter(path2.resolve("pack.mcmeta").bufferedWriter()).use { jsonWriter ->
                     jsonWriter.serializeNulls = false
                     jsonWriter.setIndent("  ")
                     GsonHelper.writeValue(jsonWriter, jsonObject, null)
                 }
 
-                val dataDir = path2.resolve("data")
+                val dataDir = path2.resolve(PackType.SERVER_DATA.directory)
                 nonVanillaDatas.dimensionType?.let { dimensionType ->
                     writeData(dataDir, Registries.DIMENSION_TYPE, dimensionType.id, dimensionType.data)
                 }
@@ -443,20 +444,20 @@ object WorldDownload {
             lastChunkPos = chunkPos
         }
 
-        fun save(chunkAccess: ChunkAccess) {
-//            WarudoDownloader.logger.info("Downloading chunk ${chunkAccess.pos}")
-            saveChunk(chunkAccess)
-            saveEntities(chunkAccess)
-            chunkAccess.pos.run {
+        fun save(chunk: ChunkAccess) {
+//            WarudoDownloader.logger.info("Downloading chunk ${chunk.pos}")
+            saveChunk(chunk)
+            saveEntities(chunk)
+            chunk.pos.run {
                 currentChunks += toLong()
                 minimap.addPixel(x, z)
             }
         }
 
-        fun saveChunk(chunkAccess: ChunkAccess) {
+        fun saveChunk(chunk: ChunkAccess) {
             // FROM net.minecraft.server.level.ChunkMap.save
-            val chunkPos = chunkAccess.pos
-            val serializableChunkData = ClientSerializableChunkData.copyOf(level, chunkAccess)
+            val chunkPos = chunk.pos
+            val serializableChunkData = ClientSerializableChunkData.copyOf(level, chunk)
             val completableFuture = CompletableFuture.supplyAsync(serializableChunkData::write, Util.backgroundExecutor())
             chunkWorker.store(chunkPos, completableFuture::join).handle { _, throwable ->
                 if (throwable != null) {
@@ -466,8 +467,8 @@ object WorldDownload {
             }
         }
 
-        fun saveEntities(chunkAccess: ChunkAccess) {
-            val chunkPos = chunkAccess.pos
+        fun saveEntities(chunk: ChunkAccess) {
+            val chunkPos = chunk.pos
             val chunkEntities = level.entitiesForRendering().filter { it !is Player && it.chunkPosition() == chunkPos }
             if (chunkEntities.isEmpty()) return
 
@@ -485,7 +486,7 @@ object WorldDownload {
                     } catch (e: Exception) {
                         val errorMsg = "Failed to save entity ${entity.type}:$entity"
                         WarudoDownloader.LOGGER.error(errorMsg, e)
-                        Minecraft.getInstance().player?.displayClientMessage(Component.literal(errorMsg).withStyle(ChatFormatting.RED), false)
+                        mc.player?.displayClientMessage(Component.literal(errorMsg).withStyle(ChatFormatting.RED), false)
                     }
                 }
                 val compoundTag = NbtUtils.addCurrentDataVersion(CompoundTag())
