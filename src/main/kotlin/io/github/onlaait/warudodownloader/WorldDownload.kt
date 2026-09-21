@@ -69,8 +69,6 @@ import net.minecraft.world.level.storage.*
 import net.minecraft.world.scores.PlayerTeam
 import net.minecraft.world.scores.Team
 import net.minecraft.world.timeline.Timeline
-import java.nio.charset.StandardCharsets
-import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import kotlin.io.path.*
@@ -197,16 +195,25 @@ object WorldDownload {
                 levelStorage.getLevelPath(LevelResource.ICON_FILE).writeBytes(icon)
             }
 
-            val resourcepacksPath = levelPath.resolve("resourcepacks")
-            for ((i, data) in ((Minecraft.getInstance().downloadedPackSource as DownloadedPackSourceAccessor).warudodownloader_getManager() as ServerPackManagerAccessor).warudodownloader_getPacks().withIndex()) {
-                val path = (data as ServerPackManagerServerPackDataAccessor).warudodownloader_getPath() ?: continue
-                val fileName =
-                    if (i == 0) {
-                        "resources.zip"
-                    } else {
-                        "resources$i.zip"
-                    }
-                path.copyTo(resourcepacksPath.resolve(fileName))
+            val packs = ((mc.downloadedPackSource as DownloadedPackSourceAccessor).warudodownloader_getManager() as ServerPackManagerAccessor).warudodownloader_getPacks()
+            if (packs.isNotEmpty()) {
+                val resourcepacksPath = levelPath.resolve("resourcepacks")
+                if (resourcepacksPath.isDirectory()) {
+                    @OptIn(ExperimentalPathApi::class)
+                    resourcepacksPath.deleteRecursively()
+                } else {
+                    resourcepacksPath.createDirectory()
+                }
+                for ((i, data) in packs.withIndex()) {
+                    val path = (data as ServerPackManagerServerPackDataAccessor).warudodownloader_getPath() ?: continue
+                    val fileName =
+                        if (i == 0) {
+                            "resources.zip"
+                        } else {
+                            "resources$i.zip"
+                        }
+                    path.copyTo(resourcepacksPath.resolve(fileName))
+                }
             }
 
             levelStorage.safeClose()
@@ -247,12 +254,10 @@ object WorldDownload {
                 val topMcmeta = JsonObject()
                 topMcmeta.add(PackMetadataSection.SERVER_TYPE.name(), encodedMeta.getOrThrow())
 
-                Files.newBufferedWriter(packDir.resolve("pack.mcmeta"), StandardCharsets.UTF_8).use { mcmetaFile ->
-                    JsonWriter(mcmetaFile).use { jsonWriter ->
-                        jsonWriter.serializeNulls = false
-                        jsonWriter.setIndent("  ")
-                        GsonHelper.writeValue(jsonWriter, topMcmeta, null)
-                    }
+                JsonWriter(packDir.resolve("pack.mcmeta").bufferedWriter()).use { jsonWriter ->
+                    jsonWriter.serializeNulls = false
+                    jsonWriter.setIndent("  ")
+                    GsonHelper.writeValue(jsonWriter, topMcmeta, null)
                 }
 
                 val dataDir = packDir.resolve(PackType.SERVER_DATA.directory)
@@ -568,7 +573,7 @@ object WorldDownload {
                     } catch (ex: Exception) {
                         val errorMsg = "Failed to save entity ${e.type}:$e"
                         WarudoDownloader.LOGGER.error(errorMsg, ex)
-                        Minecraft.getInstance().player?.sendSystemMessage(Component.literal(errorMsg).withStyle(ChatFormatting.RED))
+                        mc.player?.sendSystemMessage(Component.literal(errorMsg).withStyle(ChatFormatting.RED))
                     }
                 }
                 chunkTag = NbtUtils.addCurrentDataVersion(CompoundTag())

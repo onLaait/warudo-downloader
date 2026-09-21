@@ -9,7 +9,7 @@ import net.minecraft.world.timeline.Timeline;
 
 import java.util.Map;
 
-public class ClientTimeline {
+public final class ClientTimeline {
 
     public static final Codec<Timeline> DIRECT_CODEC = RecordCodecBuilder.<Timeline>create(
                     i -> i.group(

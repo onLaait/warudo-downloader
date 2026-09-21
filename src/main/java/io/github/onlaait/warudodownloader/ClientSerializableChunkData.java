@@ -18,7 +18,7 @@ import net.minecraft.world.level.lighting.LevelLightEngine;
 
 import java.util.*;
 
-public class ClientSerializableChunkData {
+public final class ClientSerializableChunkData {
 
     // FROM net.minecraft.world.level.chunk.storage.SerializableChunkData.copyOf
     public static SerializableChunkData copyOf(final ClientLevel level, final ChunkAccess chunk) {
