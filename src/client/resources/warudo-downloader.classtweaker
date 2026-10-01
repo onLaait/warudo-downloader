@@ -1,0 +1,7 @@
+classTweaker v1 official
+
+accessible class net/minecraft/world/level/biome/Biome$ClimateSettings
+
+accessible class net/minecraft/client/resources/server/ServerPackManager$ServerPackData
+
+accessible class net/minecraft/world/timeline/Timeline$TimeMarkerInfo

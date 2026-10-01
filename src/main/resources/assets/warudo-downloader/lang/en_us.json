@@ -1,0 +1,15 @@
+{
+  "key.category.warudo-downloader.main": "Warudo Downloader",
+  "key.warudo-downloader.open_menu": "Open Menu",
+  "warudo-downloader.menu": "World Download Menu",
+  "warudo-downloader.menu.start": "Start Download",
+  "warudo-downloader.menu.stop": "Stop Download",
+  "warudo-downloader.start_menu": "World Download Start",
+  "warudo-downloader.start_menu.distance": "Distance",
+  "warudo-downloader.start_menu.start": "Start",
+  "warudo-downloader.idle": "Warudo Downloader is here",
+  "warudo-downloader.started": "Started downloading the world (distance: %s)",
+  "warudo-downloader.stopped": "Stopped downloading the world",
+  "warudo-downloader.not_running": "Not downloading the world",
+  "warudo-downloader.already_running": "Already downloading the world"
+}

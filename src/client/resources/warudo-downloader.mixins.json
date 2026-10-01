@@ -1,0 +1,29 @@
+{
+  "required": true,
+  "package": "io.github.onlaait.warudodownloader.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "BiomeAccessor",
+    "ClientboundMapItemDataPacketMixin",
+    "ClientClockManagerAccessor",
+    "ClientClockManagerClientClockInstanceAccessor",
+    "ClientLevelAccessor",
+    "CreateWorldScreenAccessor",
+    "DownloadedPackSourceAccessor",
+    "GameRulesAccessor",
+    "IOWorkerAccessor",
+    "MannequinAccessor",
+    "RegionStorageUpgraderAccessor",
+    "ServerClockManagerAccessor",
+    "ServerClockManagerClockInstanceAccessor",
+    "ServerPackManagerAccessor",
+    "ServerPackManagerServerPackDataAccessor",
+    "TimelineAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}
